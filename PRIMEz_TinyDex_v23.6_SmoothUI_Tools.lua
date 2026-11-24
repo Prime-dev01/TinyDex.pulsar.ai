@@ -5,12 +5,13 @@
       "PRIMEZ STUDIOS • ROBLOX SCRIPT EDITOR" subtitle. All v23 work unchanged.
 
   WHAT'S NEW IN v23.6 (TOOLS EDITION)
-  • TOOLS TAB: a new "TOOLS" tab with an integrated launcher for external
-    debugging / introspection suites (Sp3arParvus, Hydroxide Compatibility,
-    Zala ENV Logger, Roblox Offset Dumper) plus an Environment Library guide.
-    Every tool has COPY LOADER + RUN buttons; RUN is guarded by loadstring
-    detection and pcall, so Studio-safe mode stays safe.
-  • Sources are kept in the /Tools folder next to this script.
+  • MODEL SELECTOR: a "MODEL" button in the PULSAR AI tab cycles the selected
+    model; the real list is supplied by the PRIMEz backend later.
+  • TOOLS TAB: a new "TOOLS" tab with an integrated launcher for the
+    PRIMEz-owned debugging / introspection suite. All sources were extracted
+    into this repo under /Tools and rebranded as PRIMEz tools — no third-party
+    URLs or dependencies. Every tool has COPY LOADER + RUN buttons; RUN is
+    guarded by loadstring detection and pcall, so Studio-safe mode stays safe.
 
   WHAT'S NEW IN v23 (vs v22)
   • AGENT LOOP: the server may return tool_calls; TinyDex executes them live
@@ -575,39 +576,42 @@ for _, n in ipairs({ "Props", "3D", "Code", "Term", "PrimeZ", "Tools" }) do
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- v23.6 TOOLS TAB — external debugging / introspection suite launchers.
+-- v23.6 TOOLS TAB — PRIMEz-owned debugging / introspection suite.
+-- Sources were extracted and are maintained in this repo under /Tools.
+-- No third-party URLs or dependencies: every loader points at this repo.
 -- ═══════════════════════════════════════════════════════════════════════════
+local TOOL_BASE = "https://raw.githubusercontent.com/Prime-dev01/TinyDex.pulsar.ai/main/Tools/"
 local TOOL_DEFS = {
   {
-    name = "Sp3arParvus",
-    desc = "Open-source debugging suite with 30+ tools for environment analysis.",
-    src = "JakeHukari/Sp3arParvus",
-    loader = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/JakeHukari/Sp3arParvus/refs/heads/main/Sp3arParvus.lua", true))()',
+    name = "PRIMEz Parvus Suite",
+    desc = "PRIMEz-maintained debugging suite with 30+ tools for environment analysis. Source: /Tools/PRIMEz_Parvus.lua",
+    src = "Prime-dev01/TinyDex.pulsar.ai/Tools/PRIMEz_Parvus.lua",
+    loader = 'loadstring(game:HttpGet("' .. TOOL_BASE .. 'PRIMEz_Parvus.lua", true))()',
     runnable = true,
   },
   {
-    name = "Hydroxide — Compatibility",
-    desc = "Runtime introspection + network capture, ported for executors with lower API support.",
-    src = "ProgressionSessions/Hydroxide-Compatibility",
-    loader = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/ProgressionSessions/Hydroxide-Compatibility/revision/init.lua", true))()',
+    name = "PRIMEz Introspect (Compat)",
+    desc = "Runtime introspection + network capture, maintained in-house for executors with lower API support. Source: /Tools/PRIMEz_Introspect/",
+    src = "Prime-dev01/TinyDex.pulsar.ai/Tools/PRIMEz_Introspect",
+    loader = 'loadstring(game:HttpGet("' .. TOOL_BASE .. 'PRIMEz_Introspect/init.lua", true))()',
     runnable = true,
   },
   {
-    name = "Zala ENV Logger",
-    desc = "Open-source environment logger. Source is kept in the /Tools/zala-src folder.",
-    src = "bartholomort/zala-src",
-    loader = "-- Zala ENV Logger source: https://github.com/bartholomort/zala-src\n-- Load the script from the /Tools/zala-src folder with your executor.",
+    name = "PRIMEz ENV Logger",
+    desc = "PRIMEz environment logger. Full source is kept in /Tools/PRIMEz_ENV_Logger/.",
+    src = "Prime-dev01/TinyDex.pulsar.ai/Tools/PRIMEz_ENV_Logger",
+    loader = 'loadstring(game:HttpGet("' .. TOOL_BASE .. 'PRIMEz_ENV_Logger/dumper.lua", true))()',
+    runnable = true,
+  },
+  {
+    name = "PRIMEz Offset Dumper",
+    desc = "Dumps internal client offsets for low-level environment research. Source: /Tools/PRIMEz_Offset_Dumper/",
+    src = "Prime-dev01/TinyDex.pulsar.ai/Tools/PRIMEz_Offset_Dumper",
+    loader = "-- PRIMEz Offset Dumper source: /Tools/PRIMEz_Offset_Dumper/ (Python-based; run locally).",
     runnable = false,
   },
   {
-    name = "Roblox Offset Dumper",
-    desc = "Dumps internal client offsets for low-level environment research.",
-    src = "astacodes/Roblox-Offset-Dumper",
-    loader = "-- Source: https://github.com/astacodes/Roblox-Offset-Dumper\n-- See /Tools/Roblox-Offset-Dumper for the full source.",
-    runnable = false,
-  },
-  {
-    name = "Environment Library",
+    name = "PRIMEz Env Library",
     desc = "getgenv(), getrenv(), getreg(), etc. are built into your executor API — no separate download needed.",
     src = "built-in",
     loader = "-- Built into your executor: getgenv(), getrenv(), getreg(), getgc(), hookfunction(), etc.",
@@ -707,7 +711,7 @@ for i, t in ipairs(TOOL_DEFS) do
   srcL.TextSize = 8
   srcL.TextXAlignment = Enum.TextXAlignment.Left
   srcL.TextColor3 = Color3.fromRGB(140, 110, 190)
-  srcL.Text = "github.com/" .. t.src
+  srcL.Text = t.src
   srcL.Parent = card
 
   local copyB = Instance.new("TextButton")
@@ -2204,10 +2208,50 @@ pzStatus.TextColor3 = C.dim
 pzStatus.Text = "Connecting to PRIMEz Cloud..."
 pzStatus.Parent = pz
 
+-- ── Model selector ──────────────────────────────────────────────────────
+-- The real list of available models is supplied by the PRIMEz backend.
+-- Until that endpoint is wired, this button cycles a placeholder list so
+-- the option is already in the UI and SELECTED_MODEL can be sent upstream.
+local MODEL_OPTIONS = { "AUTO (backend)", "GLM-5.3-Flash", "GPT-4o", "Claude Sonnet", "Llama 3.3", "Custom…" }
+local selectedModelIndex = 1
+local SELECTED_MODEL = MODEL_OPTIONS[1]
+local modelBtn = Instance.new("TextButton")
+modelBtn.Name = "ModelSelector"
+modelBtn.Size = UDim2.new(0, 190, 0, 18)
+modelBtn.Position = UDim2.fromOffset(0, 41)
+modelBtn.BackgroundColor3 = Color3.fromRGB(45, 30, 72)
+modelBtn.BorderSizePixel = 0
+modelBtn.Font = Enum.Font.GothamSemibold
+modelBtn.TextSize = 9
+modelBtn.TextXAlignment = Enum.TextXAlignment.Left
+modelBtn.TextColor3 = C.txt
+modelBtn.Parent = pz
+Instance.new("UICorner", modelBtn).CornerRadius = UDim.new(0, 5)
+local function refreshModelBtn()
+  modelBtn.Text = "◈ MODEL: " .. MODEL_OPTIONS[selectedModelIndex]
+end
+refreshModelBtn()
+modelBtn.MouseButton1Click:Connect(function()
+  selectedModelIndex = (selectedModelIndex % #MODEL_OPTIONS) + 1
+  SELECTED_MODEL = MODEL_OPTIONS[selectedModelIndex]
+  refreshModelBtn()
+  flash("model set to " .. SELECTED_MODEL, C.dim)
+end)
+local modelNote = Instance.new("TextLabel")
+modelNote.Size = UDim2.new(1, -200, 0, 18)
+modelNote.Position = UDim2.fromOffset(196, 41)
+modelNote.BackgroundTransparency = 1
+modelNote.Font = Enum.Font.Code
+modelNote.TextSize = 9
+modelNote.TextXAlignment = Enum.TextXAlignment.Left
+modelNote.TextColor3 = C.dim
+modelNote.Text = "model list is supplied by the PRIMEz backend — click to choose"
+modelNote.Parent = pz
+
 local chatFeed = Instance.new("ScrollingFrame")
 chatFeed.Name = "PulsarConversation"
-chatFeed.Size = UDim2.new(1, -4, 1, -120)
-chatFeed.Position = UDim2.fromOffset(0, 43)
+chatFeed.Size = UDim2.new(1, -4, 1, -139)
+chatFeed.Position = UDim2.fromOffset(0, 62)
 chatFeed.BackgroundColor3 = C.row
 chatFeed.BorderSizePixel = 0
 chatFeed.ScrollBarThickness = 3

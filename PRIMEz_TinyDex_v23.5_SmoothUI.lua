@@ -3,6 +3,8 @@
   PULSAR AGENT edition: real tool-calling agent loop + executing Luau terminal.
   UI: dark boot splash with animated progress bar, purple glow branding,
       "PRIMEZ STUDIOS • ROBLOX SCRIPT EDITOR" subtitle. All v23.5 work unchanged.
+  MODEL SELECTOR: a "MODEL" button in the PULSAR AI tab cycles the selected
+      model; the real list is supplied by the PRIMEz backend later.
 
   WHAT'S NEW IN v23 (vs v22)
   • AGENT LOOP: the server may return tool_calls; TinyDex executes them live
@@ -2030,10 +2032,50 @@ pzStatus.TextColor3 = C.dim
 pzStatus.Text = "Connecting to PRIMEz Cloud..."
 pzStatus.Parent = pz
 
+-- ── Model selector ──────────────────────────────────────────────────────
+-- The real list of available models is supplied by the PRIMEz backend.
+-- Until that endpoint is wired, this button cycles a placeholder list so
+-- the option is already in the UI and SELECTED_MODEL can be sent upstream.
+local MODEL_OPTIONS = { "AUTO (backend)", "GLM-5.3-Flash", "GPT-4o", "Claude Sonnet", "Llama 3.3", "Custom…" }
+local selectedModelIndex = 1
+local SELECTED_MODEL = MODEL_OPTIONS[1]
+local modelBtn = Instance.new("TextButton")
+modelBtn.Name = "ModelSelector"
+modelBtn.Size = UDim2.new(0, 190, 0, 18)
+modelBtn.Position = UDim2.fromOffset(0, 41)
+modelBtn.BackgroundColor3 = Color3.fromRGB(45, 30, 72)
+modelBtn.BorderSizePixel = 0
+modelBtn.Font = Enum.Font.GothamSemibold
+modelBtn.TextSize = 9
+modelBtn.TextXAlignment = Enum.TextXAlignment.Left
+modelBtn.TextColor3 = C.txt
+modelBtn.Parent = pz
+Instance.new("UICorner", modelBtn).CornerRadius = UDim.new(0, 5)
+local function refreshModelBtn()
+  modelBtn.Text = "◈ MODEL: " .. MODEL_OPTIONS[selectedModelIndex]
+end
+refreshModelBtn()
+modelBtn.MouseButton1Click:Connect(function()
+  selectedModelIndex = (selectedModelIndex % #MODEL_OPTIONS) + 1
+  SELECTED_MODEL = MODEL_OPTIONS[selectedModelIndex]
+  refreshModelBtn()
+  flash("model set to " .. SELECTED_MODEL, C.dim)
+end)
+local modelNote = Instance.new("TextLabel")
+modelNote.Size = UDim2.new(1, -200, 0, 18)
+modelNote.Position = UDim2.fromOffset(196, 41)
+modelNote.BackgroundTransparency = 1
+modelNote.Font = Enum.Font.Code
+modelNote.TextSize = 9
+modelNote.TextXAlignment = Enum.TextXAlignment.Left
+modelNote.TextColor3 = C.dim
+modelNote.Text = "model list is supplied by the PRIMEz backend — click to choose"
+modelNote.Parent = pz
+
 local chatFeed = Instance.new("ScrollingFrame")
 chatFeed.Name = "PulsarConversation"
-chatFeed.Size = UDim2.new(1, -4, 1, -120)
-chatFeed.Position = UDim2.fromOffset(0, 43)
+chatFeed.Size = UDim2.new(1, -4, 1, -139)
+chatFeed.Position = UDim2.fromOffset(0, 62)
 chatFeed.BackgroundColor3 = C.row
 chatFeed.BorderSizePixel = 0
 chatFeed.ScrollBarThickness = 3
