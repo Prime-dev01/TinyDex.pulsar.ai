@@ -10,8 +10,8 @@
   • TOOLS TAB: a new "TOOLS" tab with an integrated launcher for the
     PRIMEz-owned debugging / introspection suite. All sources were extracted
     into this repo under /Tools and rebranded as PRIMEz tools — no third-party
-    URLs or dependencies. Every tool has COPY LOADER + RUN buttons; RUN is
-    guarded by loadstring detection and pcall, so Studio-safe mode stays safe.
+    URLs or dependencies. Every tool has a single ▶ RUN button (no copy option);
+    RUN is guarded by loadstring detection and pcall, so Studio-safe mode stays safe.
 
   WHAT'S NEW IN v23 (vs v22)
   • AGENT LOOP: the server may return tool_calls; TinyDex executes them live
@@ -608,28 +608,21 @@ local TOOL_DEFS = {
     desc = "Dumps internal client offsets for low-level environment research. Source: /Tools/PRIMEz_Offset_Dumper/",
     src = "Prime-dev01/TinyDex.pulsar.ai/Tools/PRIMEz_Offset_Dumper",
     loader = "-- PRIMEz Offset Dumper source: /Tools/PRIMEz_Offset_Dumper/ (Python-based; run locally).",
-    runnable = false,
+    runnable = true,
+    note = "PRIMEz Offset Dumper is Python-based — run it locally from /Tools/PRIMEz_Offset_Dumper/",
   },
   {
     name = "PRIMEz Env Library",
     desc = "getgenv(), getrenv(), getreg(), etc. are built into your executor API — no separate download needed.",
     src = "built-in",
     loader = "-- Built into your executor: getgenv(), getrenv(), getreg(), getgc(), hookfunction(), etc.",
-    runnable = false,
+    runnable = true,
+    note = "Env Library is built into your executor: getgenv(), getrenv(), getgc(), hookfunction()",
   },
 }
 
-local function copyText(s)
-  local ok = pcall(function()
-    if type(setclipboard) == "function" then setclipboard(s)
-    elseif type(clipboard) == "function" then clipboard(s)
-    else error("no clipboard API available") end
-  end)
-  if ok then flash("loader copied to clipboard", C.good)
-  else showTextExport("Tool loader — copy manually", s) end
-end
-
-local function runLoader(loader, name)
+local function runLoader(loader, name, note)
+  if note then flash(note, C.dim) return end
   if type(loadstring) ~= "function" then
     flash("loadstring unavailable — copy the loader instead", C.bad)
     return
@@ -714,33 +707,18 @@ for i, t in ipairs(TOOL_DEFS) do
   srcL.Text = t.src
   srcL.Parent = card
 
-  local copyB = Instance.new("TextButton")
-  copyB.Size = UDim2.new(0, 78, 0, 20)
-  copyB.Position = UDim2.new(1, -87, 0, 8)
-  copyB.BackgroundColor3 = Color3.fromRGB(45, 30, 72)
-  copyB.BorderSizePixel = 0
-  copyB.Font = Enum.Font.GothamSemibold
-  copyB.TextSize = 9
-  copyB.Text = "COPY LOADER"
-  copyB.TextColor3 = C.dim
-  copyB.Parent = card
-  Instance.new("UICorner", copyB).CornerRadius = UDim.new(0, 6)
-  copyB.MouseButton1Click:Connect(function() copyText(t.loader) end)
-
-  if t.runnable then
-    local runB = Instance.new("TextButton")
-    runB.Size = UDim2.new(0, 78, 0, 20)
-    runB.Position = UDim2.new(1, -87, 0, 34)
-    runB.BackgroundColor3 = Color3.fromRGB(83, 43, 139)
-    runB.BorderSizePixel = 0
-    runB.Font = Enum.Font.GothamSemibold
-    runB.TextSize = 9
-    runB.Text = "▶ RUN"
-    runB.TextColor3 = Color3.fromRGB(255, 250, 255)
-    runB.Parent = card
-    Instance.new("UICorner", runB).CornerRadius = UDim.new(0, 6)
-    runB.MouseButton1Click:Connect(function() runLoader(t.loader, t.name) end)
-  end
+  local runB = Instance.new("TextButton")
+  runB.Size = UDim2.new(0, 78, 0, 20)
+  runB.Position = UDim2.new(1, -87, 0, 27)
+  runB.BackgroundColor3 = Color3.fromRGB(83, 43, 139)
+  runB.BorderSizePixel = 0
+  runB.Font = Enum.Font.GothamSemibold
+  runB.TextSize = 9
+  runB.Text = "▶ RUN"
+  runB.TextColor3 = Color3.fromRGB(255, 250, 255)
+  runB.Parent = card
+  Instance.new("UICorner", runB).CornerRadius = UDim.new(0, 6)
+  runB.MouseButton1Click:Connect(function() runLoader(t.loader, t.name, t.note) end)
 end
 -- ═══════════════════════════════════════════════════════════════════════════
 
