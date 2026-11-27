@@ -1309,14 +1309,14 @@ local function gotoTab(n)
   end
   if n == "3D" then safe("view", buildView, selected) end
 end
-for _, n in ipairs({ "Props", "3D", "Code", "Term", "PrimeZ", "Tools" }) do
+for _, n in ipairs({ "Props", "3D", "Code", "Term", "PrimeZ", "Tools", "Hub" }) do
   local b = Instance.new("TextButton")
   b.Size = UDim2.new(0, 92, 0, 26)
   b.BackgroundColor3 = Color3.fromRGB(28, 24, 43)
   b.BorderSizePixel = 0
   b.Font = Enum.Font.GothamSemibold
   b.TextSize = 10
-  b.Text = ({Props = "INSPECT", ["3D"] = "PREVIEW", Code = "WORKSPACE", Term = "CONSOLE", PrimeZ = "PULSAR AI", Tools = "TOOLS"})[n]
+  b.Text = ({Props = "INSPECT", ["3D"] = "PREVIEW", Code = "WORKSPACE", Term = "CONSOLE", PrimeZ = "PULSAR AI", Tools = "TOOLS", Hub = "PRIMEZ_"})[n]
   b.TextColor3 = C.dim
   b.Parent = tabRow
   Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
@@ -1331,6 +1331,163 @@ for _, n in ipairs({ "Props", "3D", "Code", "Term", "PrimeZ", "Tools" }) do
   p.Visible = false
   p.Parent = pageArea
   pages[n] = p
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- PRIMEZ_ TAB — official PRIMEz hub: website + community Discord.
+-- ═══════════════════════════════════════════════════════════════════════════
+do
+  local nTabs = 0
+  for _ in pairs(tabBtns) do nTabs += 1 end
+  local tabW = math.floor((514 - (nTabs - 1) * 6) / nTabs)
+  for _, b in pairs(tabBtns) do
+    b.Size = UDim2.new(0, tabW, 0, 26)
+    b.TextSize = 9
+  end
+
+  local hub = pages["Hub"]
+  local SITE_URL = "https://primez-guard.vercel.app/"
+  local DISCORD_URL = "https://discord.gg/u3pZxDF3c"
+
+  local hero = Instance.new("Frame")
+  hero.Size = UDim2.new(1, -24, 0, 108)
+  hero.Position = UDim2.new(0, 12, 0, 10)
+  hero.BackgroundColor3 = Color3.fromRGB(30, 20, 52)
+  hero.BorderSizePixel = 0
+  hero.Parent = hub
+  Instance.new("UICorner", hero).CornerRadius = UDim.new(0, 12)
+  local heroG = Instance.new("UIGradient")
+  heroG.Color = ColorSequence.new(Color3.fromRGB(124, 58, 237), Color3.fromRGB(34, 211, 238))
+  heroG.Rotation = 15
+  heroG.Parent = hero
+
+  local hTitle = Instance.new("TextLabel")
+  hTitle.Size = UDim2.new(1, -32, 0, 40)
+  hTitle.Position = UDim2.new(0, 16, 0, 12)
+  hTitle.BackgroundTransparency = 1
+  hTitle.Font = Enum.Font.GothamBlack
+  hTitle.TextSize = 32
+  hTitle.TextXAlignment = Enum.TextXAlignment.Left
+  hTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+  hTitle.Text = "PRIMEz ▸ HUB"
+  hTitle.Parent = hero
+
+  local hSub = Instance.new("TextLabel")
+  hSub.Size = UDim2.new(1, -32, 0, 16)
+  hSub.Position = UDim2.new(0, 17, 0, 54)
+  hSub.BackgroundTransparency = 1
+  hSub.Font = Enum.Font.GothamBold
+  hSub.TextSize = 11
+  hSub.TextXAlignment = Enum.TextXAlignment.Left
+  hSub.TextColor3 = Color3.fromRGB(233, 226, 255)
+  hSub.Text = "STUDIOS  •  TINYDEX  •  OFFICIAL LINKS"
+  hSub.Parent = hero
+
+  local hTag = Instance.new("TextLabel")
+  hTag.Size = UDim2.new(1, -32, 0, 16)
+  hTag.Position = UDim2.new(0, 17, 0, 78)
+  hTag.BackgroundTransparency = 1
+  hTag.Font = Enum.Font.Gotham
+  hTag.TextSize = 11
+  hTag.TextXAlignment = Enum.TextXAlignment.Left
+  hTag.TextColor3 = Color3.fromRGB(255, 255, 255)
+  hTag.TextTransparency = 0.35
+  hTag.Text = "Everything PRIMEz in one place — official site and community Discord below."
+  hTag.Parent = hero
+
+  local function copyToClipboard(txt)
+    local ok = pcall(function() setclipboard(txt) end)
+    if not ok then ok = pcall(function() toclipboard(txt) end) end
+    return ok
+  end
+
+  local function linkCard(y, accent, titleTxt, descTxt, url)
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, -24, 0, 84)
+    card.Position = UDim2.new(0, 12, 0, y)
+    card.BackgroundColor3 = C.panel
+    card.BorderSizePixel = 0
+    card.Parent = hub
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+    local cardStroke = Instance.new("UIStroke")
+    cardStroke.Color = C.line
+    cardStroke.Transparency = 0.45
+    cardStroke.Parent = card
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(0, 4, 1, -16)
+    bar.Position = UDim2.new(0, 10, 0, 8)
+    bar.BackgroundColor3 = accent
+    bar.BorderSizePixel = 0
+    bar.Parent = card
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
+
+    local t1 = Instance.new("TextLabel")
+    t1.Size = UDim2.new(1, -140, 0, 18)
+    t1.Position = UDim2.new(0, 26, 0, 10)
+    t1.BackgroundTransparency = 1
+    t1.Font = Enum.Font.GothamBold
+    t1.TextSize = 13
+    t1.TextXAlignment = Enum.TextXAlignment.Left
+    t1.TextColor3 = accent
+    t1.Text = titleTxt
+    t1.Parent = card
+
+    local t2 = Instance.new("TextLabel")
+    t2.Size = UDim2.new(1, -140, 0, 16)
+    t2.Position = UDim2.new(0, 26, 0, 30)
+    t2.BackgroundTransparency = 1
+    t2.Font = Enum.Font.Gotham
+    t2.TextSize = 11
+    t2.TextXAlignment = Enum.TextXAlignment.Left
+    t2.TextColor3 = C.dim
+    t2.Text = descTxt
+    t2.Parent = card
+
+    local urlBox = Instance.new("TextBox")
+    urlBox.Size = UDim2.new(1, -150, 0, 18)
+    urlBox.Position = UDim2.new(0, 26, 0, 54)
+    urlBox.BackgroundTransparency = 1
+    urlBox.Font = Enum.Font.Code
+    urlBox.TextSize = 11
+    urlBox.TextXAlignment = Enum.TextXAlignment.Left
+    urlBox.TextColor3 = C.txt
+    urlBox.Text = url
+    urlBox.ClearTextOnFocus = false
+    urlBox.Parent = card
+
+    local copyBtn = Instance.new("TextButton")
+    copyBtn.Size = UDim2.new(0, 104, 0, 30)
+    copyBtn.Position = UDim2.new(1, -118, 1, -42)
+    copyBtn.BackgroundColor3 = accent
+    copyBtn.BorderSizePixel = 0
+    copyBtn.Font = Enum.Font.GothamBold
+    copyBtn.TextSize = 11
+    copyBtn.TextColor3 = Color3.fromRGB(16, 12, 28)
+    copyBtn.Text = "COPY LINK"
+    copyBtn.Parent = card
+    Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 8)
+    copyBtn.MouseButton1Click:Connect(function()
+      local ok = copyToClipboard(url)
+      copyBtn.Text = ok and "COPIED ✔" or "SELECT + COPY"
+      task.delay(1.4, function() copyBtn.Text = "COPY LINK" end)
+    end)
+  end
+
+  linkCard(130, Color3.fromRGB(34, 211, 238), "PRIMEz WEBSITE",
+    "Official PRIMEz site — releases, access and the PRIMEz hub.", SITE_URL)
+  linkCard(226, Color3.fromRGB(88, 101, 242), "PRIMEz DISCORD",
+    "Community server — support, previews and announcements.", DISCORD_URL)
+
+  local foot = Instance.new("TextLabel")
+  foot.Size = UDim2.new(1, -24, 0, 16)
+  foot.Position = UDim2.new(0, 12, 1, -28)
+  foot.BackgroundTransparency = 1
+  foot.Font = Enum.Font.Gotham
+  foot.TextSize = 10
+  foot.TextColor3 = C.dim
+  foot.Text = "PRIMEz Studios  •  primez-guard.vercel.app"
+  foot.Parent = hub
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
