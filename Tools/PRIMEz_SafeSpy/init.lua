@@ -20,7 +20,17 @@
 	  e.g. run:  print(table.concat(_G.PRIMEZ_SAFESPY.query("remote", 10), "\n"))
 ]]
 
+local VERSION = "1.1.0"
 local RUN_ID = tostring(os.clock())
+
+-- in-game toast (pcall-guarded: never fatal)
+local function pzNotify(title, text, dur)
+	pcall(function()
+		game:GetService("StarterGui"):SetCore("SendNotification", {
+			Title = title, Text = text, Duration = dur or 6,
+		})
+	end)
+end
 local MAX_ENTRIES = 300
 local MAX_REMOTE_WATCH = 150
 
@@ -40,6 +50,7 @@ end
 local playerGui = plr:FindFirstChildOfClass("PlayerGui") or plr:WaitForChild("PlayerGui", 10)
 if not playerGui then
 	warn("[SafeSpy] no PlayerGui — cannot start")
+	pzNotify("⚠ SafeSpy " .. VERSION, "No PlayerGui here — SafeSpy can't run in this game/client. Join a normal server and retry.", 8)
 	return
 end
 pcall(function()
@@ -381,7 +392,7 @@ end)
 
 -- ── PULSAR / terminal API ──────────────────────────────────────────────────
 local spyAPI = {
-	version = "1.0",
+	version = VERSION,
 	entries = entries,
 	stats = stats,
 	query = function(kind, n)
@@ -403,6 +414,7 @@ pcall(function() _G.PRIMEZ_SAFESPY = spyAPI end)
 PRIMEZ_SAFESPY = spyAPI
 
 push("log", "SafeSpy active — passive listeners only (crash-safe). Copy log or ask PULSAR: _G.PRIMEZ_SAFESPY.query(\"remote\", 10)")
+pzNotify("PRIMEz SafeSpy v" .. VERSION, "Passive env logger running — crash-safe (no hooks). Pick a filter or COPY LOG. PULSAR: _G.PRIMEZ_SAFESPY.query()", 7)
 refreshFeed()
 
 -- respawn safety: re-parent on character respawn is unnecessary (ResetOnSpawn=false)

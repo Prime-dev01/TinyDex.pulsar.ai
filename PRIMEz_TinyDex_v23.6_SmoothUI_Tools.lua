@@ -1497,6 +1497,14 @@ end
 -- No third-party URLs or dependencies: every loader points at this repo.
 -- ═══════════════════════════════════════════════════════════════════════════
 local TOOL_BASE = "https://raw.githubusercontent.com/Prime-dev01/TinyDex.pulsar.ai/main/Tools/"
+-- In-game toast notifications (pcall-guarded: never fatal).
+local function pzNotify(title, text, dur)
+  pcall(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+      Title = title, Text = text, Duration = dur or 6,
+    })
+  end)
+end
 local TOOL_DEFS = {
   {
     name = "PRIMEz SafeSpy (crash-safe)",
@@ -1651,6 +1659,7 @@ for i, t in ipairs(TOOL_DEFS) do
   runB.MouseButton1Click:Connect(function()
     if t.risky and os.clock() > armedUntil then
       armedUntil = os.clock() + 6
+      pzNotify("⚠ CRASH RISK: " .. t.name, "This tool hooks executor internals. If your executor is outdated, Roblox CAN crash. Click RUN again to run anyway.", 7)
       flash("⚠ " .. t.risky .. " — click RUN again within 6s to run anyway", C.bad)
       runB.Text = "⚠ SURE?"
       task.delay(6, function()
@@ -1660,6 +1669,7 @@ for i, t in ipairs(TOOL_DEFS) do
     end
     armedUntil = 0
     runB.Text = "▶ RUN"
+    if t.risky then pzNotify("▶ Running " .. t.name, "Last warning: if this crashes Roblox, UPDATE your executor (Delta/Xeno) and rejoin.", 6) end
     runLoader(t.loader, t.name, t.note)
   end)
 end
