@@ -1348,6 +1348,7 @@ do
   local hub = pages["Hub"]
   local SITE_URL = "https://primez-guard.vercel.app/"
   local DISCORD_URL = "https://discord.gg/u3pZxDF3c"
+  PRIMEZ_DISCORD_URL = DISCORD_URL -- global: read by the terminal 'agent' hint
 
   local hero = Instance.new("Frame")
   hero.Size = UDim2.new(1, -24, 0, 108)
