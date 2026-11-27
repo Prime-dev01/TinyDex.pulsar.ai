@@ -587,6 +587,7 @@ local TOOL_DEFS = {
     src = "Prime-dev01/TinyDex.pulsar.ai/Tools/PRIMEz_Parvus.lua",
     loader = 'loadstring(game:HttpGet("' .. TOOL_BASE .. 'PRIMEz_Parvus.lua", true))()',
     runnable = true,
+    risky = "Parvus parents its UI to CoreGui/gethui — crashes stale executors (update Delta/Xeno first)",
   },
   {
     name = "PRIMEz Introspect (Compat)",
@@ -594,6 +595,7 @@ local TOOL_DEFS = {
     src = "Prime-dev01/TinyDex.pulsar.ai/Tools/PRIMEz_Introspect",
     loader = 'loadstring(game:HttpGet("' .. TOOL_BASE .. 'PRIMEz_Introspect/init.lua", true))()',
     runnable = true,
+    risky = "Introspect hooks functions (hookfunction/getconnections) — may crash stale executors",
   },
   {
     name = "PRIMEz ENV Logger",
@@ -601,6 +603,7 @@ local TOOL_DEFS = {
     src = "Prime-dev01/TinyDex.pulsar.ai/Tools/PRIMEz_ENV_Logger",
     loader = 'loadstring(game:HttpGet("' .. TOOL_BASE .. 'PRIMEz_ENV_Logger/dumper.lua", true))()',
     runnable = true,
+    risky = "ENV Logger hooks metamethods and enumerates getgc/getconnections — HIGHEST crash risk on stale executors",
   },
   {
     name = "PRIMEz Offset Dumper",
@@ -717,7 +720,23 @@ for i, t in ipairs(TOOL_DEFS) do
   runB.TextColor3 = Color3.fromRGB(255, 250, 255)
   runB.Parent = card
   Instance.new("UICorner", runB).CornerRadius = UDim.new(0, 6)
-  runB.MouseButton1Click:Connect(function() runLoader(t.loader, t.name, t.note) end)
+  -- Risky tools (hook executor internals) require a confirm: first click
+  -- warns, second click within 6s actually runs — no accidental crashes.
+  local armedUntil = 0
+  runB.MouseButton1Click:Connect(function()
+    if t.risky and os.clock() > armedUntil then
+      armedUntil = os.clock() + 6
+      flash("⚠ " .. t.risky .. " — click RUN again within 6s to run anyway", C.bad)
+      runB.Text = "⚠ SURE?"
+      task.delay(6, function()
+        if os.clock() > armedUntil then runB.Text = "▶ RUN" end
+      end)
+      return
+    end
+    armedUntil = 0
+    runB.Text = "▶ RUN"
+    runLoader(t.loader, t.name, t.note)
+  end)
 end
 -- ═══════════════════════════════════════════════════════════════════════════
 
