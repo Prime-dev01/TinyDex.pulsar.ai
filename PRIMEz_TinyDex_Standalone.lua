@@ -1489,7 +1489,7 @@ do
   foot.Font = Enum.Font.Gotham
   foot.TextSize = 10
   foot.TextColor3 = C.dim
-  foot.Text = "PRIMEz Studios  •  primez-guard.vercel.app"
+  foot.Text = "PRIMEz Studios  •  primez-guard.vercel.app  •  STANDALONE  •  NO AI"
   foot.Parent = hub
 end
 

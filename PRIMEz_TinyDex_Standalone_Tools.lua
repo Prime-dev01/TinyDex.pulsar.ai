@@ -1,5 +1,5 @@
 --[[ ══════════════════════════════════════════════════════════════════════════
-  TinyDex v23 Standalone+Tools — PRIMEz Studios SCRIPTS CLIENT  •  NO AI  •  SMOOTH UI 2 + TOOLS
+  TinyDex v23 Standalone+Tools — PRIMEz Studios FULL SCRIPTS CLIENT  •  SMOOTH UI 2 + TOOLS  •  PULSAR AI INSIDE
   NEW GUI: SmoothUI 2 — terminal-style boot, 3 themes (Midnight/Carbon/Ocean),
   floating draggable P toggle. SafeBoot: PlayerGui-only UI, no boot HTTP.
   PULSAR AGENT edition: real tool-calling agent loop + executing Luau terminal.
@@ -1309,14 +1309,14 @@ local function gotoTab(n)
   end
   if n == "3D" then safe("view", buildView, selected) end
 end
-for _, n in ipairs({ "Props", "3D", "Code", "Term", "Tools", "Hub" }) do
+for _, n in ipairs({ "Props", "3D", "Code", "Term", "PrimeZ", "Tools", "Hub" }) do
   local b = Instance.new("TextButton")
   b.Size = UDim2.new(0, 92, 0, 26)
   b.BackgroundColor3 = Color3.fromRGB(28, 24, 43)
   b.BorderSizePixel = 0
   b.Font = Enum.Font.GothamSemibold
   b.TextSize = 10
-  b.Text = ({Props = "INSPECT", ["3D"] = "PREVIEW", Code = "WORKSPACE", Term = "CONSOLE", Tools = "TOOLS", Hub = "PRIMEZ_"})[n]
+  b.Text = ({Props = "INSPECT", ["3D"] = "PREVIEW", Code = "WORKSPACE", Term = "CONSOLE", PrimeZ = "PULSAR AI", Tools = "TOOLS", Hub = "PRIMEZ_"})[n]
   b.TextColor3 = C.dim
   b.Parent = tabRow
   Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
@@ -1479,8 +1479,6 @@ do
     "Official PRIMEz site — releases, access and the PRIMEz hub.", SITE_URL)
   linkCard(226, Color3.fromRGB(88, 101, 242), "PRIMEz DISCORD",
     "Community server — support, previews and announcements.", DISCORD_URL)
-  linkCard(322, Color3.fromRGB(160, 83, 255), "GET PULSAR AI",
-    "Standalone build — join the PRIMEz Discord to get the PULSAR AI version.", DISCORD_URL)
 
   local foot = Instance.new("TextLabel")
   foot.Size = UDim2.new(1, -24, 0, 16)
@@ -1489,12 +1487,12 @@ do
   foot.Font = Enum.Font.Gotham
   foot.TextSize = 10
   foot.TextColor3 = C.dim
-  foot.Text = "PRIMEz Studios  •  primez-guard.vercel.app"
+  foot.Text = "PRIMEz Studios  •  primez-guard.vercel.app  •  STANDALONE+TOOLS  •  PULSAR AI INSIDE"
   foot.Parent = hub
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- v23 Standalone TOOLS TAB — PRIMEz-owned debugging / introspection suite.
+-- Standalone+Tools TOOLS TAB — PRIMEz-owned debugging / introspection suite.
 -- Sources were extracted and are maintained in this repo under /Tools.
 -- No third-party URLs or dependencies: every loader points at this repo.
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -1564,7 +1562,7 @@ toolsHead.Font = Enum.Font.GothamBold
 toolsHead.TextSize = 13
 toolsHead.TextXAlignment = Enum.TextXAlignment.Left
 toolsHead.TextColor3 = C.hot
-toolsHead.Text = "◆  EXTERNAL TOOLS  •  v23 Standalone"
+toolsHead.Text = "◆  EXTERNAL TOOLS  •  Standalone+Tools"
 toolsHead.Parent = toolsPage
 
 local toolsScroll = Instance.new("ScrollingFrame")
@@ -3074,7 +3072,7 @@ termIn.FocusLost:Connect(function(enter)
     out("run            — execute the WORKSPACE draft in this terminal")
     out("run <luau>     — execute one line of Luau code, e.g.  run print(workspace.Name)")
     out("status         — runtime capabilities (executor / execution / PRIMEz route)")
-    out("agent          — PULSAR AI lives in the full version (PRIMEZ_ tab has links)")
+    out("agent          — open the PULSAR AI tab")
     if not Terminal.available then
       out("Execution is OFF in this runtime (no loadstring): Studio-safe diagnostics only.", C.dim)
     end
@@ -3113,7 +3111,7 @@ termIn.FocusLost:Connect(function(enter)
     end
     out("Visible DataModel descendants counted: " .. total .. (total >= 5000 and " (limit reached)" or ""), C.good)
   elseif command == "agent" then
-    out("PULSAR AI is not in this standalone build. Join the PRIMEz Discord to get the full PULSAR AI version: " .. tostring(PRIMEZ_DISCORD_URL), C.dim)
+    gotoTab("PrimeZ")
   elseif command == "clear" then
     for _, child in ipairs(termOut:GetChildren()) do
       if child:IsA("TextLabel") then child:Destroy() end
@@ -3122,6 +3120,1614 @@ termIn.FocusLost:Connect(function(enter)
     out("Unknown command. Type help.", C.bad)
   end
 end)
+
+-- ══════════════════════════════════════════════════════════════════════
+-- PRIMEz PULSAR AGENT v23 — FULL SCRIPTS CLIENT
+-- Real tool-calling agent loop + auto-executing Luau terminal.
+-- Backend contract: see the file header.
+-- ══════════════════════════════════════════════════════════════════════
+
+local pz = pages["PrimeZ"]
+
+local pzTitle = Instance.new("TextLabel")
+pzTitle.Size = UDim2.new(1, -8, 0, 22)
+pzTitle.BackgroundTransparency = 1
+pzTitle.Font = Enum.Font.GothamBold
+pzTitle.TextSize = 16
+pzTitle.TextXAlignment = Enum.TextXAlignment.Left
+pzTitle.TextColor3 = Color3.fromRGB(176,130,255)
+pzTitle.Text = "PULSAR AGENT  ·  PRIMEz Full Scripts Client (v23.6)"
+pzTitle.Parent = pz
+
+local pzStatus = Instance.new("TextLabel")
+pzStatus.Size = UDim2.new(1, -8, 0, 16)
+pzStatus.Position = UDim2.fromOffset(0, 23)
+pzStatus.BackgroundTransparency = 1
+pzStatus.Font = Enum.Font.Code
+pzStatus.TextSize = 10
+pzStatus.TextXAlignment = Enum.TextXAlignment.Left
+pzStatus.TextColor3 = C.dim
+pzStatus.Text = "Connecting to PRIMEz Cloud..."
+pzStatus.Parent = pz
+
+local chatFeed = Instance.new("ScrollingFrame")
+chatFeed.Name = "PulsarConversation"
+chatFeed.Size = UDim2.new(1, -4, 1, -120)
+chatFeed.Position = UDim2.fromOffset(0, 43)
+chatFeed.BackgroundColor3 = C.row
+chatFeed.BorderSizePixel = 0
+chatFeed.ScrollBarThickness = 3
+chatFeed.AutomaticCanvasSize = Enum.AutomaticSize.Y
+chatFeed.CanvasSize = UDim2.new(0,0,0,0)
+chatFeed.Parent = pz
+Instance.new("UICorner", chatFeed).CornerRadius = UDim.new(0, 9)
+local chatStroke = Instance.new("UIStroke", chatFeed)
+chatStroke.Color = C.line
+chatStroke.Transparency = 0.5
+local feedLayout = Instance.new("UIListLayout")
+feedLayout.Padding = UDim.new(0, 6)
+feedLayout.SortOrder = Enum.SortOrder.LayoutOrder
+feedLayout.Parent = chatFeed
+local feedPad = Instance.new("UIPadding")
+feedPad.PaddingTop = UDim.new(0, 7)
+feedPad.PaddingBottom = UDim.new(0, 7)
+feedPad.PaddingLeft = UDim.new(0, 7)
+feedPad.PaddingRight = UDim.new(0, 7)
+feedPad.Parent = chatFeed
+
+local composer = Instance.new("Frame")
+composer.Size = UDim2.new(1, -4, 0, 54)
+composer.Position = UDim2.new(0, 0, 1, -74)
+composer.BackgroundColor3 = Color3.fromRGB(27, 22, 43)
+composer.BorderSizePixel = 0
+composer.Parent = pz
+Instance.new("UICorner", composer).CornerRadius = UDim.new(0, 9)
+local composerStroke = Instance.new("UIStroke", composer)
+composerStroke.Color = C.line
+composerStroke.Transparency = 0.25
+
+local promptBox = Instance.new("TextBox")
+promptBox.Size = UDim2.new(1, -72, 1, -8)
+promptBox.Position = UDim2.fromOffset(7, 4)
+promptBox.BackgroundTransparency = 1
+promptBox.Font = Enum.Font.Gotham
+promptBox.TextSize = 12
+promptBox.TextColor3 = C.txt
+promptBox.PlaceholderColor3 = C.dim
+promptBox.PlaceholderText = "Describe the script you want — PULSAR analyzes the game, builds it, and runs it in the terminal..."
+promptBox.Text = ""
+promptBox.ClearTextOnFocus = false
+promptBox.MultiLine = true
+promptBox.TextWrapped = true
+promptBox.TextXAlignment = Enum.TextXAlignment.Left
+promptBox.TextYAlignment = Enum.TextYAlignment.Center
+promptBox.Parent = composer
+
+local sendBtn = Instance.new("TextButton")
+sendBtn.Size = UDim2.new(0, 56, 0, 36)
+sendBtn.Position = UDim2.new(1, -62, 0, 9)
+sendBtn.BackgroundColor3 = C.hot2
+sendBtn.BorderSizePixel = 0
+sendBtn.Font = Enum.Font.GothamBold
+sendBtn.TextSize = 11
+sendBtn.Text = "SEND"
+sendBtn.TextColor3 = Color3.new(1,1,1)
+sendBtn.Parent = composer
+Instance.new("UICorner", sendBtn).CornerRadius = UDim.new(0, 8)
+local sendStroke = Instance.new("UIStroke", sendBtn)
+sendStroke.Color = tint(C.hot, Color3.new(1, 1, 1), 0.3)
+sendStroke.Transparency = 0.45
+sendBtn.MouseEnter:Connect(function() TweenService:Create(sendBtn, TweenInfo.new(0.14), {BackgroundColor3 = C.hot}):Play() end)
+sendBtn.MouseLeave:Connect(function() TweenService:Create(sendBtn, TweenInfo.new(0.18), {BackgroundColor3 = C.hot2}):Play() end)
+
+-- ── Agent permissions ──────────────────────────────────────────────────
+local AGENT_PERMISSIONS = {
+  execution = true,  -- allow run_luau (terminal execution)
+  autoRun = true,    -- automatically execute agent-generated scripts
+  mutate = true,     -- allow set_property / create_instance / destroy_instance
+}
+
+local utilityRow = Instance.new("Frame")
+utilityRow.Size = UDim2.new(1, -4, 0, 18)
+utilityRow.Position = UDim2.new(0, 0, 1, -18)
+utilityRow.BackgroundTransparency = 1
+utilityRow.Parent = pz
+
+local contextBtn = Instance.new("TextButton")
+contextBtn.Size = UDim2.new(0, 150, 1, 0)
+contextBtn.BackgroundTransparency = 1
+contextBtn.Font = Enum.Font.Code
+contextBtn.TextSize = 10
+contextBtn.TextXAlignment = Enum.TextXAlignment.Left
+contextBtn.TextColor3 = C.hot
+contextBtn.Text = "● Selection: ON"
+contextBtn.Parent = utilityRow
+
+local autoRunBtn = Instance.new("TextButton")
+autoRunBtn.Size = UDim2.new(0, 100, 1, 0)
+autoRunBtn.Position = UDim2.new(0, 152, 0, 0)
+autoRunBtn.BackgroundColor3 = Color3.fromRGB(48, 29, 79)
+autoRunBtn.BorderSizePixel = 0
+autoRunBtn.Font = Enum.Font.GothamSemibold
+autoRunBtn.TextSize = 9
+autoRunBtn.Text = "AUTO-RUN ON"
+autoRunBtn.TextColor3 = C.txt
+autoRunBtn.Parent = utilityRow
+Instance.new("UICorner", autoRunBtn).CornerRadius = UDim.new(0, 5)
+
+local execBtn = Instance.new("TextButton")
+execBtn.Size = UDim2.new(0, 80, 1, 0)
+execBtn.Position = UDim2.new(0, 254, 0, 0)
+execBtn.BackgroundColor3 = Color3.fromRGB(48, 29, 79)
+execBtn.BorderSizePixel = 0
+execBtn.Font = Enum.Font.GothamSemibold
+execBtn.TextSize = 9
+execBtn.Text = "EXEC ON"
+execBtn.TextColor3 = C.txt
+execBtn.Parent = utilityRow
+Instance.new("UICorner", execBtn).CornerRadius = UDim.new(0, 5)
+
+indexInfo = Instance.new("TextLabel")
+indexInfo.Size = UDim2.new(1, -496, 1, 0)
+indexInfo.Position = UDim2.fromOffset(336, 0)
+indexInfo.BackgroundTransparency = 1
+indexInfo.Font = Enum.Font.Code
+indexInfo.TextSize = 9
+indexInfo.TextXAlignment = Enum.TextXAlignment.Left
+indexInfo.TextColor3 = C.dim
+indexInfo.Text = "INDEX NOT BUILT"
+indexInfo.Parent = utilityRow
+
+local syncBtn = Instance.new("TextButton")
+syncBtn.Size = UDim2.new(0, 88, 1, 0)
+syncBtn.Position = UDim2.new(1, -154, 0, 0)
+syncBtn.BackgroundColor3 = Color3.fromRGB(48, 29, 79)
+syncBtn.BorderSizePixel = 0
+syncBtn.Font = Enum.Font.GothamSemibold
+syncBtn.TextSize = 9
+syncBtn.Text = "SYNC DATA"
+syncBtn.TextColor3 = C.txt
+syncBtn.Parent = utilityRow
+Instance.new("UICorner", syncBtn).CornerRadius = UDim.new(0, 5)
+
+local clearBtn = Instance.new("TextButton")
+clearBtn.Size = UDim2.new(0, 60, 1, 0)
+clearBtn.Position = UDim2.new(1, -60, 0, 0)
+clearBtn.BackgroundTransparency = 1
+clearBtn.Font = Enum.Font.Code
+clearBtn.TextSize = 10
+clearBtn.Text = "CLEAR"
+clearBtn.TextColor3 = C.dim
+clearBtn.Parent = utilityRow
+
+-- ── Cloud bridge (executor HTTP; provider keys stay on PRIMEz servers) ──
+local function pulsarRequest(method, url, body)
+  local req = request or http_request
+  if not req and syn and type(syn.request) == "function" then req = syn.request end
+  if type(req) ~= "function" then
+    if method == "GET" then
+      local okGet, rawGet = pcall(function() return game:HttpGet(url) end)
+      if okGet and type(rawGet) == "string" and #rawGet > 0 then return rawGet end
+    end
+    error("Executor HTTP is unavailable in this runtime.")
+  end
+  local options = {
+    Url = url,
+    Method = method,
+    Headers = { ["Content-Type"] = "application/json", ["Accept"] = "application/json" },
+  }
+  -- v23.4.1: 45 → 90 seconds. Render free-tier cold starts (~30-50s) plus a
+  -- slow model request regularly exceeded 45s and the turn died with
+  -- "Request failed" mid-task.
+  pcall(function() options.TimeOut = 90 end)
+  if body ~= nil then options.Body = HttpService:JSONEncode(body) end
+  local response = req(options)
+  if type(response) ~= "table" then error("Unexpected HTTP response.") end
+  local code = tonumber(response.StatusCode or response.Status or 0) or 0
+  local raw = response.Body or response.body or ""
+  if code < 200 or code >= 300 then
+    local detail = tostring(raw):sub(1, 220)
+    error("PRIMEz returned HTTP " .. tostring(code) .. (detail ~= "" and (": " .. detail) or ""))
+  end
+  return raw
+end
+
+-- ── Model selector ──────────────────────────────────────────────────────
+-- The real list of available models is supplied by the PRIMEz backend.
+-- Until that endpoint is wired, this button cycles a placeholder list so
+-- the option is already in the UI and SELECTED_MODEL can be sent upstream.
+local MODEL_OPTIONS = { { id = nil, label = "AUTO (backend)" } }
+local selectedModelIndex = 1
+local SELECTED_MODEL = MODEL_OPTIONS[1].label
+local SELECTED_MODEL_ID = nil
+local modelBtn = Instance.new("TextButton")
+modelBtn.Name = "ModelSelector"
+modelBtn.Size = UDim2.new(0, 190, 0, 18)
+modelBtn.Position = UDim2.fromOffset(0, 41)
+modelBtn.BackgroundColor3 = Color3.fromRGB(45, 30, 72)
+modelBtn.BorderSizePixel = 0
+modelBtn.Font = Enum.Font.GothamSemibold
+modelBtn.TextSize = 9
+modelBtn.TextXAlignment = Enum.TextXAlignment.Left
+modelBtn.TextColor3 = C.txt
+modelBtn.Parent = pz
+Instance.new("UICorner", modelBtn).CornerRadius = UDim.new(0, 5)
+local function refreshModelBtn()
+  local opt = MODEL_OPTIONS[selectedModelIndex] or MODEL_OPTIONS[1]
+  SELECTED_MODEL = opt.label
+  SELECTED_MODEL_ID = opt.id
+  modelBtn.Text = "◈ MODEL: " .. SELECTED_MODEL
+end
+refreshModelBtn()
+modelBtn.MouseButton1Click:Connect(function()
+  selectedModelIndex = (selectedModelIndex % #MODEL_OPTIONS) + 1
+  refreshModelBtn()
+  flash("model set to " .. SELECTED_MODEL, C.dim)
+end)
+task.delay(10, function()
+  local ok, raw = pcall(pulsarRequest, "GET", PRIMEZ .. "api/ai/models")
+  if ok and type(raw) == "string" then
+    local decOk, data = pcall(function() return HttpService:JSONDecode(raw) end)
+    if decOk and type(data) == "table" and type(data.models) == "table" and #data.models > 0 then
+      local nextOpts = { { id = nil, label = "AUTO (backend)" } }
+      for _, m in ipairs(data.models) do
+        if type(m) == "table" and m.id then
+          table.insert(nextOpts, { id = tostring(m.id), label = tostring(m.name or m.id) })
+        end
+      end
+      MODEL_OPTIONS = nextOpts
+      selectedModelIndex = 1
+      refreshModelBtn()
+      pcall(function()
+        if modelNote then
+          modelNote.Text = ("loaded %d models from PRIMEz — click to cycle"):format(#MODEL_OPTIONS - 1)
+        end
+      end)
+    end
+  end
+end)
+local modelNote = Instance.new("TextLabel")
+modelNote.Size = UDim2.new(1, -200, 0, 18)
+modelNote.Position = UDim2.fromOffset(196, 41)
+modelNote.BackgroundTransparency = 1
+modelNote.Font = Enum.Font.Code
+modelNote.TextSize = 9
+modelNote.TextXAlignment = Enum.TextXAlignment.Left
+modelNote.TextColor3 = C.dim
+modelNote.Text = "model list is supplied by the PRIMEz backend — click to choose"
+modelNote.Parent = pz
+
+-- ── Path resolution ─────────────────────────────────────────────────────
+local function resolvePath(input)
+  if type(input) ~= "string" or input:match("^%s*$") then
+    return nil, "path must be a non-empty string like 'Workspace.Baseplate'"
+  end
+  local raw = input:match("^%s*(.-)%s*$")
+  raw = raw:gsub("^game%.", "")
+  raw = raw:gsub("^%[", ""):gsub("%]$", "")
+  local segments = {}
+  for seg in raw:gmatch("[^.]+") do segments[#segments + 1] = seg end
+  if #segments == 0 then return nil, "empty path" end
+  local current
+  local okService, service = pcall(function() return game:GetService(segments[1]) end)
+  if okService and service then
+    current = service
+  else
+    current = game:FindFirstChild(segments[1])
+    if not current then return nil, ("unknown service or top-level '%s'"):format(segments[1]) end
+  end
+  for i = 2, #segments do
+    local seg = segments[i]
+    local okChild, child = pcall(function() return current:FindFirstChild(seg) end)
+    if not okChild or not child then
+      local okWait, waited = pcall(function() return current:WaitForChild(seg, 0.5) end)
+      if not okWait or not waited then
+        return nil, ("'%s' not found under %s"):format(seg, pathOf(current))
+      end
+      current = waited
+    else
+      current = child
+    end
+  end
+  return current
+end
+
+-- ── Value coercion for set_property ────────────────────────────────────
+local function coerceValue(raw)
+  if type(raw) ~= "string" then return raw, true end
+  local s = raw:match("^%s*(.-)%s*$")
+  if s == "true" then return true, true end
+  if s == "false" then return false, true end
+  if s == "nil" then return nil, true end
+  if s:match("^-?%d+%.?%d*$") then return tonumber(s), true end
+  local vx, vy, vz = s:match("^Vector3%.new%(%s*(-?%d+%.?%d*)%s*,%s*(-?%d+%.?%d*)%s*,%s*(-?%d+%.?%d*)%s*%)$")
+  if vx then return Vector3.new(tonumber(vx), tonumber(vy), tonumber(vz)), true end
+  local r, g, b = s:match("^Color3%.fromRGB%(%s*(%d+)%s*,%s*(%d+)%s*,%s*(%d+)%s*%)$")
+  if r then return Color3.fromRGB(tonumber(r), tonumber(g), tonumber(b)), true end
+  local inst = resolvePath(s)
+  if inst then return inst, true end
+  return s, true -- fall back to the raw string
+end
+
+-- ── Whole-game analysis (the agent's primary research tool) ────────────
+local function buildGameAnalysis(scope)
+  local lines = {}
+  local function add(s) lines[#lines + 1] = s end
+  add("PRIMEz TINYDEX v23 — FULL GAME ANALYSIS")
+  add(("Place: %s  |  PlaceId: %s  |  JobId: %s"):format(tostring(game.Name), tostring(game.PlaceId), tostring(game.JobId)))
+  add(("Runtime: %s / %s  |  WorkspaceStreaming: %s"):format(
+    RunService:IsRunning() and "running" or "edit",
+    RunService:IsClient() and "client" or "server",
+    tostring(workspace.StreamingEnabled)))
+  add("")
+  add("== SERVICES ==")
+  for _, service in ipairs(game:GetChildren()) do
+    local ok, count = pcall(function()
+      local n = 0
+      for _ in ipairs(service:GetChildren()) do n += 1 end
+      return n
+    end)
+    add(("- %s <%s> — %d direct children"):format(service.Name, service.ClassName, ok and count or -1))
+  end
+  add("")
+  add("== PLAYERS ==")
+  for _, player in ipairs(PlayersService:GetPlayers()) do
+    add(("- %s (UserId %d)%s"):format(player.Name, player.UserId, player == plr and "  << LOCAL PLAYER" or ""))
+    local character = player.Character
+    local hum = character and character:FindFirstChildOfClass("Humanoid")
+    if character then
+      local partCount = 0
+      for _ in ipairs(character:GetChildren()) do partCount += 1 end
+      add(("  Character '%s': Health=%s WalkSpeed=%s JumpPower=%s State=%s parts=%d"):format(
+        character.Name,
+        hum and tostring(hum.Health) or "?",
+        hum and tostring(hum.WalkSpeed) or "?",
+        hum and tostring(hum.JumpPower) or "?",
+        hum and tostring(hum:GetState()) or "?",
+        partCount))
+    else
+      add("  Character: none (not spawned)")
+    end
+  end
+  add("")
+  add("== REMOTES (client-visible, first 150) ==")
+  local remoteCount = 0
+  for _, service in ipairs(game:GetChildren()) do
+    local ok, descendants = pcall(function() return service:GetDescendants() end)
+    if ok and type(descendants) == "table" then
+      local scannedHere = 0
+      for _, inst in ipairs(descendants) do
+        scannedHere += 1
+        if scannedHere % 2000 == 0 then task.wait() end
+        if scannedHere > 20000 then break end -- PERF: per-service scan cap
+        if inst:IsA("RemoteEvent") or inst:IsA("RemoteFunction") or inst:IsA("UnreliableRemoteEvent") then
+          remoteCount += 1
+          if remoteCount <= 150 then
+            add(("- %s <%s> @ %s"):format(inst.Name, inst.ClassName, pathOf(inst)))
+          end
+        end
+      end
+    end
+    if remoteCount > 150 then break end
+    task.wait()
+  end
+  add(("Total remotes found: %d%s"):format(remoteCount, remoteCount > 150 and " (list capped at 150)" or ""))
+  for _, serviceName in ipairs({ "ReplicatedStorage", "ReplicatedFirst", "StarterPlayer", "StarterGui", "StarterPack", "Lighting", "Teams", "SoundService" }) do
+    local ok, service = pcall(function() return game:GetService(serviceName) end)
+    if ok and service then
+      local kids = service:GetChildren()
+      add("")
+      add(("== %s (%d direct children) =="):format(service.Name, #kids))
+      for i = 1, math.min(#kids, 60) do
+        local k = kids[i]
+        add(("- %s <%s>"):format(k.Name, k.ClassName))
+      end
+      if #kids > 60 then add(("... %d more"):format(#kids - 60)) end
+    end
+  end
+  local cam = workspace.CurrentCamera
+  if cam then
+    add("")
+    add(("== CAMERA == CFrame=%s FOV=%s Type=%s"):format(tostring(cam.CFrame), tostring(cam.FieldOfView), tostring(cam.CameraType)))
+  end
+  local wsKids = workspace:GetChildren()
+  add("")
+  add(("== WORKSPACE (%d direct children) =="):format(#wsKids))
+  for i = 1, math.min(#wsKids, 60) do
+    local k = wsKids[i]
+    add(("- %s <%s>"):format(k.Name, k.ClassName))
+  end
+  if #wsKids > 60 then add(("... %d more"):format(#wsKids - 60)) end
+  if scope == "deep" then
+    add("")
+    add("== FULL INSPECTION INDEX (deep mode) ==")
+    add(rebuildInspectionIndex())
+  end
+  return table.concat(lines, "\n")
+end
+
+-- ── Tool registry ───────────────────────────────────────────────────────
+local AGENT_TOOLS = {}
+local function toolResult(ok, text) return { ok = ok, output = text } end
+
+AGENT_TOOLS.analyze_game = {
+  description = "Build a structured report of the whole game: services, players, characters, remotes, replicated content, camera, lighting, workspace. Use this FIRST when you need broad understanding. scope='deep' also appends the full instance index.",
+  parameters = {
+    type = "object",
+    properties = { scope = { type = "string", description = "'summary' (default) or 'deep'" } },
+  },
+  run = function(args)
+    return toolResult(true, buildGameAnalysis(args and args.scope))
+  end,
+}
+
+-- ── v23.4: game identification + live web research ──────────────────────
+local cachedGameInfo = nil
+local function getGameInfo()
+  if cachedGameInfo then return cachedGameInfo end
+  local gameName = game.Name
+  local creator = "?"
+  local okP, info = pcall(function()
+    return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+  end)
+  if okP and type(info) == "table" then
+    if type(info.Name) == "string" and info.Name ~= "" then gameName = info.Name end
+    if type(info.Creator) == "table" then
+      creator = tostring(info.Creator.Name or info.Creator.Id or "?")
+    elseif info.Creator then
+      creator = tostring(info.Creator)
+    end
+  end
+  cachedGameInfo = { name = gameName, creator = creator, placeId = game.PlaceId }
+  return cachedGameInfo
+end
+
+local function urlEncode(s)
+  s = tostring(s or "")
+  return (s:gsub("[^%w%-_%.%~]", function(c)
+    return string.format("%%%02X", string.byte(c))
+  end))
+end
+
+local function urlDecode(s)
+  s = tostring(s or ""):gsub("+", " ")
+  return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end))
+end
+
+local function stripHtmlTags(s)
+  s = tostring(s or "")
+  s = s:gsub("<[^>]->", "")
+  s = s:gsub("&amp;", "&"):gsub("&quot;", '"'):gsub("&#x27;", "'")
+  s = s:gsub("&#39;", "'"):gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&nbsp;", " ")
+  return s
+end
+
+AGENT_TOOLS.get_game_info = {
+  description = "Identify the current game: real game name, place id, creator. The game name is also in the context. Call this when unsure which game you are in.",
+  parameters = {
+    type = "object",
+    properties = {},
+  },
+  run = function()
+    local g = getGameInfo()
+    return toolResult(true, ("GAME: %s\nPLACE ID: %d\nJOB ID: %s\nCREATOR: %s"):format(
+      g.name, g.placeId, tostring(game.JobId), g.creator))
+  end,
+}
+
+AGENT_TOOLS.web_search = {
+  description = "Search the internet (DuckDuckGo) for current information: this game's known scripts and features, recent updates, how a feature works. USE THIS FIRST for game-specific script requests — research what features exist for THIS game (e.g. '<game name> auto steal script roblox') before building.",
+  parameters = {
+    type = "object",
+    properties = {
+      query = { type = "string", description = "search keywords, e.g. 'Steal a Brainrot auto steal script roblox'" },
+      count = { type = "number", description = "max results (default 6, max 10)" },
+    },
+    required = { "query" },
+  },
+  run = function(args)
+    local query = tostring(args and args.query or "")
+    if query:match("^%s*$") then return toolResult(false, "query is empty") end
+    local maxResults = math.clamp(tonumber(args and args.count) or 6, 1, 10)
+    local req = request or http_request
+    if not req and syn and type(syn.request) == "function" then req = syn.request end
+    if type(req) ~= "function" then
+      return toolResult(false, "Executor HTTP unavailable — web_search needs an executor runtime.")
+    end
+    local function fetch(url)
+      local body = ""
+      local ok = pcall(function()
+        local resp = req({
+          Url = url,
+          Method = "GET",
+          Headers = {
+            ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            ["Accept"] = "text/html",
+          },
+        })
+        local code = tonumber(resp.StatusCode or resp.Status or 0) or 0
+        if code < 200 or code >= 300 then error("HTTP " .. tostring(code)) end
+        body = tostring(resp.Body or resp.body or "")
+      end)
+      return ok and body or ""
+    end
+    -- DuckDuckGo lite first (simple HTML), then the html endpoint as fallback.
+    local html = fetch("https://lite.duckduckgo.com/lite/?q=" .. urlEncode(query))
+    if html == "" then html = fetch("https://html.duckduckgo.com/html/?q=" .. urlEncode(query)) end
+    if html == "" then
+      return toolResult(false, "search request failed (blocked, offline, or no usable response)")
+    end
+    local results = {}
+    for href, title in html:gmatch('<a[^>]-href="([^"]-uddg=[^"]-)"[^>]->(.-)</a>') do
+      local link = href:match('uddg=([^&"]+)')
+      results[#results + 1] = { title = stripHtmlTags(title), url = link and urlDecode(link) or "" }
+    end
+    local snippets = {}
+    for snip in html:gmatch('class="result__snippet"[^>]->(.-)</a>') do snippets[#snippets + 1] = stripHtmlTags(snip) end
+    for snip in html:gmatch('class="result%-snippet"[^>]->(.-)</[at][td]>') do snippets[#snippets + 1] = stripHtmlTags(snip) end
+    if #results == 0 then
+      return toolResult(false, "no results parsed (search page layout may have changed) — proceed with analyze_game + your own knowledge instead")
+    end
+    local out = { ("WEB SEARCH '%s' — top results:"):format(query) }
+    for i = 1, math.min(maxResults, #results) do
+      local r = results[i]
+      local snip = (snippets[i] and snippets[i] ~= "") and snippets[i] or "(no snippet)"
+      if #snip > 300 then snip = snip:sub(1, 300) .. "…" end
+      out[#out + 1] = ("%d. %s\n   %s\n   %s"):format(i, r.title ~= "" and r.title or "(untitled)", snip, r.url)
+    end
+    return toolResult(true, table.concat(out, "\n"))
+  end,
+}
+
+AGENT_TOOLS.inspect = {
+  description = "Inspect one instance in depth: full readable properties, attributes, direct children. path like 'Workspace.Baseplate' or 'Players.LocalPlayer.Character.Humanoid'.",
+  parameters = {
+    type = "object",
+    properties = { path = { type = "string" } },
+    required = { "path" },
+  },
+  run = function(args)
+    local inst, err = resolvePath(args and args.path)
+    if not inst then return toolResult(false, "resolve failed: " .. tostring(err)) end
+    local outLines = { ("INSTANCE: %s <%s>"):format(inst.Name, inst.ClassName), "PATH: " .. pathOf(inst), "PROPERTIES:" }
+    for _, propertyName in ipairs(readableProperties(inst)) do
+      local valueOk, value = pcall(function() return inst[propertyName] end)
+      if valueOk then outLines[#outLines + 1] = "  " .. propertyName .. " = " .. valueToText(value) end
+    end
+    local okAttrs, attrs = pcall(function() return inst:GetAttributes() end)
+    outLines[#outLines + 1] = "ATTRIBUTES:"
+    if okAttrs and type(attrs) == "table" then
+      local keys = {}
+      for key in pairs(attrs) do keys[#keys + 1] = tostring(key) end
+      table.sort(keys)
+      for _, key in ipairs(keys) do
+        local valueOk, value = pcall(function() return inst:GetAttribute(key) end)
+        if valueOk then outLines[#outLines + 1] = "  " .. key .. " = " .. tostring(value) end
+      end
+      if #keys == 0 then outLines[#outLines + 1] = "  (none)" end
+    else
+      outLines[#outLines + 1] = "  (unavailable)"
+    end
+    local okKids, kids = pcall(function() return inst:GetChildren() end)
+    outLines[#outLines + 1] = "DIRECT CHILDREN:"
+    if okKids and type(kids) == "table" then
+      outLines[#outLines + 1] = "  count: " .. #kids
+      for i = 1, math.min(#kids, 50) do
+        outLines[#outLines + 1] = ("  %d. %s <%s>"):format(i, kids[i].Name, kids[i].ClassName)
+      end
+      if #kids > 50 then outLines[#outLines + 1] = ("  ... %d more"):format(#kids - 50) end
+    else
+      outLines[#outLines + 1] = "  (unavailable)"
+    end
+    return toolResult(true, table.concat(outLines, "\n"))
+  end,
+}
+
+AGENT_TOOLS.list_children = {
+  description = "List the direct children of an instance (name, class, path). Bounded to 80.",
+  parameters = {
+    type = "object",
+    properties = { path = { type = "string" }, includeDescendants = { type = "boolean" } },
+    required = { "path" },
+  },
+  run = function(args)
+    local inst, err = resolvePath(args and args.path)
+    if not inst then return toolResult(false, "resolve failed: " .. tostring(err)) end
+    if args and args.includeDescendants then
+      local ok, descendants = pcall(function() return inst:GetDescendants() end)
+      if not ok then return toolResult(false, "descendants unavailable") end
+      local outLines = { ("DESCENDANTS OF %s (%d)"):format(pathOf(inst), #descendants) }
+      for i = 1, math.min(#descendants, 120) do
+        outLines[#outLines + 1] = ("  %s <%s>"):format(pathOf(descendants[i]), descendants[i].ClassName)
+      end
+      if #descendants > 120 then outLines[#outLines + 1] = ("  ... %d more"):format(#descendants - 120) end
+      return toolResult(true, table.concat(outLines, "\n"))
+    end
+    local ok, kids = pcall(function() return inst:GetChildren() end)
+    if not ok then return toolResult(false, "children unavailable") end
+    local outLines = { ("CHILDREN OF %s (%d)"):format(pathOf(inst), #kids) }
+    for i = 1, math.min(#kids, 80) do
+      outLines[#outLines + 1] = ("  %d. %s <%s>"):format(i, kids[i].Name, kids[i].ClassName)
+    end
+    if #kids > 80 then outLines[#outLines + 1] = ("  ... %d more"):format(#kids - 80) end
+    return toolResult(true, table.concat(outLines, "\n"))
+  end,
+}
+
+AGENT_TOOLS.search_game = {
+  description = "Search client-visible instances by name substring with an optional class filter. Bounded to 120 results.",
+  parameters = {
+    type = "object",
+    properties = { query = { type = "string" }, class = { type = "string" } },
+    required = { "query" },
+  },
+  run = function(args)
+    local query = tostring(args and args.query or ""):lower()
+    if query == "" then return toolResult(false, "query required") end
+    local classFilter = args and args.class and tostring(args.class):lower() or nil
+    local results, scanned = {}, 0
+    for _, service in ipairs(game:GetChildren()) do
+      local ok, descendants = pcall(function() return service:GetDescendants() end)
+      if ok and type(descendants) == "table" then
+        for _, inst in ipairs(descendants) do
+          scanned += 1
+          if scanned % 2000 == 0 then task.wait() end
+          if scanned >= 20000 then break end -- PERF: per-service scan cap
+          if #results < 120 then
+            local name = tostring(inst.Name):lower()
+            local className = tostring(inst.ClassName):lower()
+            if name:find(query, 1, true) and (not classFilter or className:find(classFilter, 1, true)) then
+              results[#results + 1] = pathOf(inst) .. "  <" .. inst.ClassName .. ">"
+            end
+          end
+        end
+      end
+      if #results >= 120 then break end
+      task.wait()
+    end
+    local text = ("SEARCH '%s' — %d matches (scanned %d instances):\n%s"):format(
+      query, #results, scanned, table.concat(results, "\n"))
+    if #results >= 120 then text = text .. "\n(result cap reached; refine the query)" end
+    return toolResult(true, text)
+  end,
+}
+
+AGENT_TOOLS.read_property = {
+  description = "Read a single property of one instance. Returns the raw value as text.",
+  parameters = {
+    type = "object",
+    properties = { path = { type = "string" }, property = { type = "string" } },
+    required = { "path", "property" },
+  },
+  run = function(args)
+    local inst, err = resolvePath(args and args.path)
+    if not inst then return toolResult(false, "resolve failed: " .. tostring(err)) end
+    local prop = args and args.property
+    if type(prop) ~= "string" or prop == "" then return toolResult(false, "property required") end
+    local ok, value = pcall(function() return inst[prop] end)
+    if not ok then return toolResult(false, ("cannot read property '%s': %s"):format(prop, tostring(value))) end
+    return toolResult(true, ("%s.%s = %s"):format(pathOf(inst), prop, valueToText(value)))
+  end,
+}
+
+AGENT_TOOLS.get_selection = {
+  description = "Get the instance currently selected in the TinyDex Explorer (full detail). No arguments.",
+  parameters = { type = "object", properties = {} },
+  run = function()
+    if not selected then return toolResult(false, "nothing selected in the Explorer") end
+    local outLines = { ("SELECTION: %s <%s>"):format(selected.Name, selected.ClassName), "PATH: " .. pathOf(selected) }
+    for _, propertyName in ipairs(readableProperties(selected)) do
+      local valueOk, value = pcall(function() return selected[propertyName] end)
+      if valueOk then outLines[#outLines + 1] = "  " .. propertyName .. " = " .. valueToText(value) end
+    end
+    return toolResult(true, table.concat(outLines, "\n"))
+  end,
+}
+
+AGENT_TOOLS.get_logs = {
+  description = "Read recent client log messages (print/warn/error) from the game. count defaults to 25, max 200.",
+  parameters = {
+    type = "object",
+    properties = { count = { type = "number" } },
+  },
+  run = function(args)
+    local count = math.clamp(tonumber(args and args.count) or 25, 1, 200)
+    local ok, history = pcall(function() return LogService:GetLogHistory() end)
+    if not ok or type(history) ~= "table" then return toolResult(false, "log history unavailable") end
+    local lines = {}
+    local start = math.max(1, #history - count + 1)
+    for i = start, #history do
+      local entry = history[i]
+      lines[#lines + 1] = ("[%s] %s"):format(tostring(entry and entry.MessageType), tostring(entry and entry.Message))
+    end
+    return toolResult(true, "RECENT LOGS:\n" .. table.concat(lines, "\n"))
+  end,
+}
+
+AGENT_TOOLS.run_luau = {
+  description = "Execute Luau code on the client through the TinyDex terminal and return captured output/errors. THIS IS THE PRIMARY ACTION TOOL: after analyzing the game and writing a script, run it here. If execution errors, read the output, fix the code, and run again.",
+  parameters = {
+    type = "object",
+    properties = {
+      code = { type = "string", description = "Complete, runnable Luau source code" },
+      label = { type = "string", description = "Short name shown in the terminal, e.g. 'esp'" },
+    },
+    required = { "code" },
+  },
+  run = function(args)
+    if not AGENT_PERMISSIONS.execution then
+      return toolResult(false, "EXEC permission is OFF — enable the ▶ EXEC toggle in the PULSAR bar to allow code execution.")
+    end
+    local result = Terminal.exec(args and args.code, args and args.label or "PULSAR")
+    local status = result.ok and "EXEC OK" or "EXEC FAILED"
+    return toolResult(result.ok, ("%s in %d ms\n%s"):format(status, result.duration or 0, result.output))
+  end,
+}
+
+AGENT_TOOLS.save_draft = {
+  description = "Save Luau code into the WORKSPACE draft editor (does NOT execute it). Use when the user asked to review code before running, or alongside run_luau for later reuse.",
+  parameters = {
+    type = "object",
+    properties = { code = { type = "string" } },
+    required = { "code" },
+  },
+  run = function(args)
+    if type(args and args.code) ~= "string" or args.code:match("^%s*$") then
+      return toolResult(false, "code required")
+    end
+    editor.Text = args.code
+    editorNote.Text = "Draft loaded by PULSAR. Run it from CONSOLE with `run`."
+    editorNote.TextColor3 = C.good
+    return toolResult(true, "draft saved to the WORKSPACE tab (" .. #args.code .. " chars)")
+  end,
+}
+
+local PROTECTED_INSTANCES = {
+  Workspace = true, Players = true, Lighting = true, ReplicatedStorage = true,
+  ReplicatedFirst = true, StarterPlayer = true, StarterGui = true, StarterPack = true,
+  Teams = true, SoundService = true, TeleportService = true, HttpService = true,
+  ScriptContext = true, WorkspaceFluidForcesServiceInternal = true,
+}
+
+AGENT_TOOLS.set_property = {
+  description = "Set a property on a client-visible instance. Values accept booleans, numbers, strings, Vector3.new(x,y,z), Color3.fromRGB(r,g,b), or an instance path. Requires MUTATE permission.",
+  parameters = {
+    type = "object",
+    properties = { path = { type = "string" }, property = { type = "string" }, value = {} },
+    required = { "path", "property" },
+  },
+  run = function(args)
+    if not AGENT_PERMISSIONS.mutate then
+      return toolResult(false, "MUTATE permission is OFF — cannot modify instances.")
+    end
+    local inst, err = resolvePath(args and args.path)
+    if not inst then return toolResult(false, "resolve failed: " .. tostring(err)) end
+    local prop = args and args.property
+    if type(prop) ~= "string" or prop == "" then return toolResult(false, "property required") end
+    if prop == "Parent" then return toolResult(false, "use create_instance/destroy_instance for reparenting") end
+    local value, okCoerce = coerceValue(args and args.value)
+    local ok, setErr = pcall(function() inst[prop] = value end)
+    if not ok then return toolResult(false, ("set failed: %s"):format(tostring(setErr))) end
+    local okRead, readBack = pcall(function() return inst[prop] end)
+    return toolResult(true, ("set %s.%s = %s"):format(pathOf(inst), prop, okRead and valueToText(readBack) or "?"))
+  end,
+}
+
+AGENT_TOOLS.create_instance = {
+  description = "Create a new instance under a parent (client-side). Example: create a Highlight named 'PRIMEz_ESP' under Workspace. Requires MUTATE permission.",
+  parameters = {
+    type = "object",
+    properties = {
+      class = { type = "string" },
+      name = { type = "string" },
+      parentPath = { type = "string" },
+      properties = { type = "object", description = "optional {property: value} map applied after creation" },
+    },
+    required = { "class", "parentPath" },
+  },
+  run = function(args)
+    if not AGENT_PERMISSIONS.mutate then
+      return toolResult(false, "MUTATE permission is OFF — cannot create instances.")
+    end
+    local parent, err = resolvePath(args and args.parentPath)
+    if not parent then return toolResult(false, "resolve failed: " .. tostring(err)) end
+    local class = args and args.class
+    if type(class) ~= "string" or class == "" then return toolResult(false, "class required") end
+    local okInst, inst = pcall(function() return Instance.new(class) end)
+    if not okInst or not inst then return toolResult(false, ("cannot create class '%s'"):format(tostring(class))) end
+    inst.Name = (args and args.name ~= "" and args.name) or class
+    local okParent, parentErr = pcall(function() inst.Parent = parent end)
+    if not okParent then
+      pcall(function() inst:Destroy() end)
+      return toolResult(false, ("parent failed: %s"):format(tostring(parentErr)))
+    end
+    local applied, failed = {}, {}
+    if args and type(args.properties) == "table" then
+      for prop, rawValue in pairs(args.properties) do
+        local value = coerceValue(rawValue)
+        local okSet, setErr = pcall(function() inst[prop] = value end)
+        if okSet then applied[#applied + 1] = prop else failed[#failed + 1] = prop .. " (" .. tostring(setErr) .. ")" end
+      end
+    end
+    local text = ("CREATED %s <%s> under %s"):format(inst.Name, inst.ClassName, pathOf(parent))
+    if #applied > 0 then text = text .. " | set: " .. table.concat(applied, ", ") end
+    if #failed > 0 then text = text .. " | failed: " .. table.concat(failed, ", ") end
+    return toolResult(true, text)
+  end,
+}
+
+AGENT_TOOLS.destroy_instance = {
+  description = "Destroy a client-side instance by path. Core DataModel services are protected. Use responsibly; effects are client-side only. Requires MUTATE permission.",
+  parameters = {
+    type = "object",
+    properties = { path = { type = "string" } },
+    required = { "path" },
+  },
+  run = function(args)
+    if not AGENT_PERMISSIONS.mutate then
+      return toolResult(false, "MUTATE permission is OFF — cannot destroy instances.")
+    end
+    local inst, err = resolvePath(args and args.path)
+    if not inst then return toolResult(false, "resolve failed: " .. tostring(err)) end
+    if inst.Parent == game and PROTECTED_INSTANCES[inst.Name] then
+      return toolResult(false, ("refusing to destroy protected service '%s'"):format(inst.Name))
+    end
+    if inst == gui or inst:IsDescendantOf(gui) then
+      return toolResult(false, "refusing to destroy TinyDex's own UI")
+    end
+    local where = pathOf(inst)
+    local ok, destroyErr = pcall(function() inst:Destroy() end)
+    if not ok then return toolResult(false, ("destroy failed: %s"):format(tostring(destroyErr))) end
+    return toolResult(true, "DESTROYED " .. where)
+  end,
+}
+
+-- Schemas sent to the server with every request.
+local TOOL_SCHEMAS = {}
+for name, def in pairs(AGENT_TOOLS) do
+  TOOL_SCHEMAS[#TOOL_SCHEMAS + 1] = {
+    name = name,
+    description = def.description,
+    parameters = def.parameters,
+  }
+end
+table.sort(TOOL_SCHEMAS, function(a, b) return a.name < b.name end)
+
+local function dispatchTool(name, args)
+  local def = AGENT_TOOLS[name]
+  if not def then
+    -- v23.4.1: weak models sometimes invent tool names (e.g. pul_search_info).
+    -- Tell them exactly which tools are real so the next step corrects itself.
+    local names = {}
+    for realName in pairs(AGENT_TOOLS) do names[#names + 1] = realName end
+    table.sort(names)
+    return { ok = false, output = ("unknown tool '%s'. These are the ONLY real tools: %s. Re-issue the task using one of these."):format(tostring(name), table.concat(names, ", ")) }
+  end
+  if type(args) == "string" then
+    local okDecode, decoded = pcall(function() return HttpService:JSONDecode(args) end)
+    args = (okDecode and type(decoded) == "table") and decoded or { raw = args }
+  end
+  local ok, result = pcall(def.run, args)
+  if not ok then
+    return { ok = false, output = ("tool '%s' crashed: %s"):format(tostring(name), tostring(result)) }
+  end
+  if type(result) ~= "table" then
+    return { ok = true, output = tostring(result) }
+  end
+  return result
+end
+
+-- ── Chat UI helpers ────────────────────────────────────────────────────
+local conversation = {}
+local includeSelection = true
+local busy = false
+-- v23.4: 8 → 24. The user wants the agent to keep going until the task is
+-- actually DONE (research → analyze → build → execute → verify), not stop
+-- mid-task. The v23.1 protections still apply (clipped history, capped
+-- index, capped scans), so long turns can't drag huge payloads anymore.
+local MAX_STEPS = 24
+
+local function scrollFeed()
+  task.defer(function()
+    chatFeed.CanvasPosition = Vector2.new(0, math.max(0, feedLayout.AbsoluteContentSize.Y + 30))
+  end)
+end
+
+local function addChatMessage(who, message, isError)
+  local card = Instance.new("Frame")
+  card.BackgroundColor3 = (who == "YOU") and Color3.fromRGB(31,35,47) or Color3.fromRGB(34,29,43)
+  card.BorderSizePixel = 0
+  card.Size = UDim2.new(1, -2, 0, 40)
+  card.AutomaticSize = Enum.AutomaticSize.Y
+  card.Parent = chatFeed
+  Instance.new("UICorner", card).CornerRadius = UDim.new(0, 4)
+  local name = Instance.new("TextLabel")
+  name.Size = UDim2.new(1, -14, 0, 15)
+  name.Position = UDim2.fromOffset(7, 4)
+  name.BackgroundTransparency = 1
+  name.Font = Enum.Font.GothamBold
+  name.TextSize = 10
+  name.TextXAlignment = Enum.TextXAlignment.Left
+  name.TextColor3 = isError and C.bad or (who == "YOU" and C.hot or Color3.fromRGB(190,145,255))
+  name.Text = who
+  name.Parent = card
+  local body = Instance.new("TextLabel")
+  body.Size = UDim2.new(1, -14, 0, 0)
+  body.Position = UDim2.fromOffset(7, 21)
+  body.AutomaticSize = Enum.AutomaticSize.Y
+  body.BackgroundTransparency = 1
+  body.Font = Enum.Font.Gotham
+  body.TextSize = 11
+  body.TextWrapped = true
+  body.TextXAlignment = Enum.TextXAlignment.Left
+  body.TextYAlignment = Enum.TextYAlignment.Top
+  body.TextColor3 = isError and C.bad or C.txt
+  body.Text = tostring(message)
+  body.Parent = card
+  scrollFeed()
+end
+
+local function addToolChip(name, detail, ok)
+  local chip = Instance.new("Frame")
+  chip.BackgroundColor3 = Color3.fromRGB(24, 20, 38)
+  chip.BorderSizePixel = 0
+  chip.Size = UDim2.new(1, -2, 0, 24)
+  chip.AutomaticSize = Enum.AutomaticSize.Y
+  chip.Parent = chatFeed
+  Instance.new("UICorner", chip).CornerRadius = UDim.new(0, 4)
+  local chipStroke = Instance.new("UIStroke", chip)
+  chipStroke.Color = ok and C.line or C.bad
+  chipStroke.Transparency = 0.4
+  local icon = Instance.new("TextLabel")
+  icon.Size = UDim2.new(0, 22, 0, 24)
+  icon.Position = UDim2.fromOffset(6, 0)
+  icon.BackgroundTransparency = 1
+  icon.Font = Enum.Font.GothamBold
+  icon.TextSize = 11
+  icon.TextXAlignment = Enum.TextXAlignment.Left
+  icon.TextYAlignment = Enum.TextYAlignment.Top
+  icon.TextColor3 = ok and C.good or C.bad
+  icon.Text = ok and "🔧" or "✖"
+  icon.Parent = chip
+  local label = Instance.new("TextLabel")
+  label.Size = UDim2.new(1, -36, 0, 24)
+  label.Position = UDim2.fromOffset(28, 0)
+  label.BackgroundTransparency = 1
+  label.Font = Enum.Font.Code
+  label.TextSize = 10
+  label.TextWrapped = true
+  label.TextXAlignment = Enum.TextXAlignment.Left
+  label.TextYAlignment = Enum.TextYAlignment.Top
+  label.TextColor3 = ok and C.dim or C.bad
+  label.Text = "TOOL " .. tostring(name) .. (detail and (" · " .. tostring(detail)) or "")
+  label.Parent = chip
+  scrollFeed()
+end
+
+local function copyToClipboard(text)
+  local ok = pcall(function()
+    if type(setclipboard) == "function" then setclipboard(text) return end
+    if type(toclipboard) == "function" then toclipboard(text) return end
+    local g = (type(getgenv) == "function") and getgenv() or nil
+    if g and type(g.setclipboard) == "function" then g.setclipboard(text) return end
+    error("no clipboard API in this runtime")
+  end)
+  if ok then flash("copied to clipboard", C.good) else showTextExport("Copy script manually", text) end
+end
+
+local function addScriptCard(title, code)
+  local card = Instance.new("Frame")
+  card.BackgroundColor3 = Color3.fromRGB(16, 14, 28)
+  card.BorderSizePixel = 0
+  card.Size = UDim2.new(1, -2, 0, 0)
+  card.AutomaticSize = Enum.AutomaticSize.Y
+  card.Parent = chatFeed
+  Instance.new("UICorner", card).CornerRadius = UDim.new(0, 4)
+  local cardStroke = Instance.new("UIStroke", card)
+  cardStroke.Color = C.hot2
+  cardStroke.Transparency = 0.3
+  local header = Instance.new("Frame")
+  header.Size = UDim2.new(1, -8, 0, 24)
+  header.Position = UDim2.fromOffset(4, 4)
+  header.BackgroundTransparency = 1
+  header.Parent = card
+  local titleText = Instance.new("TextLabel")
+  titleText.Size = UDim2.new(1, -150, 1, 0)
+  titleText.BackgroundTransparency = 1
+  titleText.Font = Enum.Font.GothamBold
+  titleText.TextSize = 10
+  titleText.TextXAlignment = Enum.TextXAlignment.Left
+  titleText.TextColor3 = Color3.fromRGB(190,145,255)
+  titleText.Text = "📜 " .. tostring(title) .. "  (" .. #code .. " chars)"
+  titleText.Parent = header
+  local runBtn = Instance.new("TextButton")
+  runBtn.Size = UDim2.new(0, 66, 0, 22)
+  runBtn.Position = UDim2.new(1, -146, 0, 1)
+  runBtn.BackgroundColor3 = C.hot2
+  runBtn.BorderSizePixel = 0
+  runBtn.Font = Enum.Font.GothamBold
+  runBtn.TextSize = 9
+  runBtn.Text = "RUN"
+  runBtn.TextColor3 = Color3.new(1, 1, 1)
+  runBtn.Parent = header
+  Instance.new("UICorner", runBtn).CornerRadius = UDim.new(0, 5)
+  local copyBtn = Instance.new("TextButton")
+  copyBtn.Size = UDim2.new(0, 66, 0, 22)
+  copyBtn.Position = UDim2.new(1, -74, 0, 1)
+  copyBtn.BackgroundColor3 = Color3.fromRGB(48, 29, 79)
+  copyBtn.BorderSizePixel = 0
+  copyBtn.Font = Enum.Font.GothamBold
+  copyBtn.TextSize = 9
+  copyBtn.Text = "COPY"
+  copyBtn.TextColor3 = C.txt
+  copyBtn.Parent = header
+  Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 5)
+  local codeBox = Instance.new("TextBox")
+  codeBox.Size = UDim2.new(1, -12, 0, 0)
+  codeBox.Position = UDim2.fromOffset(6, 30)
+  codeBox.AutomaticSize = Enum.AutomaticSize.Y
+  codeBox.BackgroundColor3 = Color3.fromRGB(10, 9, 18)
+  codeBox.BorderSizePixel = 0
+  codeBox.Font = Enum.Font.Code
+  codeBox.TextSize = 10
+  codeBox.TextEditable = false
+  codeBox.MultiLine = true
+  codeBox.TextWrapped = true
+  codeBox.TextXAlignment = Enum.TextXAlignment.Left
+  codeBox.TextYAlignment = Enum.TextYAlignment.Top
+  codeBox.TextColor3 = C.txt
+  codeBox.Text = code
+  codeBox.Parent = card
+  Instance.new("UICorner", codeBox).CornerRadius = UDim.new(0, 5)
+  local codePad = Instance.new("UIPadding", codeBox)
+  codePad.PaddingTop = UDim.new(0, 6)
+  codePad.PaddingBottom = UDim.new(0, 6)
+  codePad.PaddingLeft = UDim.new(0, 8)
+  codePad.PaddingRight = UDim.new(0, 8)
+  runBtn.MouseButton1Click:Connect(function()
+    local result = Terminal.exec(code, title)
+    if result.ok then flash(("ran '%s' · %d ms"):format(title, result.duration), C.good)
+    else flash(("run failed: %s"):format(tostring(result.output):sub(1, 120)), C.bad) end
+  end)
+  copyBtn.MouseButton1Click:Connect(function() copyToClipboard(code) end)
+  scrollFeed()
+end
+
+-- Extract fenced ```lua blocks from a reply so they render as script cards.
+local function renderReply(reply)
+  if type(reply) ~= "string" or reply == "" then return end
+  local chunks = {}
+  local start = 1
+  while true do
+    local a = reply:find("```", start, true)
+    if not a then
+      chunks[#chunks + 1] = { text = reply:sub(start) }
+      break
+    end
+    chunks[#chunks + 1] = { text = reply:sub(start, a - 1) }
+    local b = reply:find("```", a + 3, true)
+    if not b then
+      chunks[#chunks + 1] = { code = reply:sub(a + 3) }
+      break
+    end
+    chunks[#chunks + 1] = { code = reply:sub(a + 3, b - 1) }
+    start = b + 3
+  end
+  local cardIndex = 1
+  for _, chunk in ipairs(chunks) do
+    if chunk.code then
+      local code = chunk.code
+      local firstLineEnd = code:find("\n", 1, true)
+      local firstLine = firstLineEnd and code:sub(1, firstLineEnd - 1) or ""
+      local lang = firstLine:match("^%s*(%a+)")
+      local title = nil
+      if lang and (lang:lower() == "lua" or lang:lower() == "luau") then
+        code = code:sub(firstLineEnd + 1)
+      else
+        title = firstLine:match("^@?(%S[%w _%-]*)")
+      end
+      code = code:gsub("^%s*\n", ""):gsub("\n%s*$", "")
+      if code:match("%S") then
+        addScriptCard(title or ("script " .. cardIndex), code)
+        cardIndex += 1
+      end
+    elseif chunk.text and chunk.text:match("%S") then
+      addChatMessage("PULSAR", chunk.text)
+    end
+  end
+end
+
+-- ── v22 bug fix: detect leaked raw tool_calls JSON inside a reply ──────
+local function extractLeakedToolCalls(reply)
+  if type(reply) ~= "string" then return nil end
+  local probe = reply:match("%b{}")
+  if not probe or not probe:find("tool_calls", 1, true) then return nil end
+  local okDecode, decoded = pcall(function() return HttpService:JSONDecode(probe) end)
+  if not okDecode or type(decoded) ~= "table" or type(decoded.tool_calls) ~= "table" then return nil end
+  return decoded.tool_calls
+end
+
+-- ── Text tool protocol (works with any backend, including the current ──
+-- PRIMEz passthrough): the model asks for tools with plain lines like
+-- TOOL_CALL {"id":"c1","tool":"run_luau","args":{"code":"print('hi')"}}
+-- and the client executes them locally and returns TOOL_RESULT blocks.
+local function parseTextToolCalls(reply)
+  if type(reply) ~= "string" then return nil end
+  local calls = {}
+  for line in reply:gmatch("[^\r\n]+") do
+    local payload = line:match("^%s*TOOL_CALL%s+(%b{})%s*$")
+    if payload then
+      local okDecode, decoded = pcall(function() return HttpService:JSONDecode(payload) end)
+      if okDecode and type(decoded) == "table" and type(decoded.tool or decoded.name) == "string" then
+        calls[#calls + 1] = {
+          id = tostring(decoded.id or ("t" .. #calls + 1)),
+          name = tostring(decoded.tool or decoded.name),
+          args = decoded.args or decoded.arguments or {},
+        }
+      end
+    end
+  end
+  if #calls == 0 then return nil end
+  return calls
+end
+
+-- ── System context (agentic product knowledge) ─────────────────────────
+local PULSAR_SYSTEM = [[
+IDENTITY
+You are PULSAR AGENT, the built-in AI SCRIPT BUILDER of PRIMEz Studios TinyDex v23 (Full Scripts Client). You are not a chatbot and not a tutor: you are a script BUILDER, judged ONLY by whether the scripts you deliver actually RUN in the live game. Analysis and research are only means to that end — the finished product is a working, EXECUTED script.
+
+OFFICIAL PRIMEz REFERENCE
+PRIMEz Studios: https://primez-guard.vercel.app/
+You may give the user this link. Do not claim you browsed the live site.
+
+YOUR TOOLS (real, executed by the TinyDex client)
+- analyze_game (scope: summary|deep): structured whole-game report — services, players, characters, remotes, replicated content, camera, lighting, workspace. Call this FIRST for any broad request or when you have not analyzed the game yet in this conversation.
+- inspect(path), list_children(path), search_game(query, class?), read_property(path, property), get_selection()
+- run_luau(code, label?): EXECUTES Luau in the TinyDex terminal and returns real output/errors. PRIMARY ACTION TOOL.
+- save_draft(code): places code in the WORKSPACE draft editor for the user to review/run later.
+- set_property(path, property, value), create_instance(class, name?, parentPath, properties?), destroy_instance(path)
+- get_game_info(): real game name, place id, creator — identifies the game you are in.
+- web_search(query, count?): searches the internet (DuckDuckGo) for current info about this game's scripts, features and updates.
+- get_logs(count?): recent client logs — use it after run_luau to verify behavior.
+
+AGENT WORKFLOW (follow strictly)
+1. UNDERSTAND the request. If the request involves the game's structure, characters, remotes, UI, or anything you have not verified yet, call analyze_game first.
+2. RESEARCH with targeted tools (inspect / search_game / list_children) until you have concrete evidence — names, classes, paths.
+3. BUILD a COMPLETE, runnable Luau script. No placeholders, no TODOs, no pseudo-code. Client-side effects only.
+4. EXECUTE it with run_luau. AUTO-RUN is enabled by default: the user wants scripts executed automatically in the terminal. Always run what you build unless the user explicitly asked to only review code (then use save_draft).
+5. VERIFY: read the run_luau output and get_logs. If execution failed, FIX the code and run again — up to 3 fix attempts per script.
+6. REPORT: finish with a short summary — what you analyzed, what you built, whether it ran, output highlights, and how to stop or tweak it (e.g. a toggle the script exposes).
+
+GAME SCRIPT WORKFLOW (when the user asks for a script for THIS game)
+1. IDENTIFY the game: the CURRENT GAME name is already in the context — do NOT call get_game_info for this, it is free information.
+2. RESEARCH (OPTIONAL, at most ONE web_search): a single "<game name> script features" search is enough. If it fails or looks slow, SKIP research entirely.
+3. ANALYZE the live game with analyze_game scope='summary' (go deep ONLY if the summary is clearly insufficient to build the script).
+4. BUILD and EXECUTE immediately after the analysis.
+SCRIPT TYPES users ask for: auto-steal (steal-style games), autofarm / auto-collect, auto-buy / shop, movement (speed, fly, infinite jump), teleport, ESP / visuals (players, items, bases), anti-AFK, GUI hub menus, remote tools, lag tools, and game-specific mixes. Pick the feature set that matches the request.
+
+SPEED RULES (the user's #1 requirement — a delivered script in under 5 minutes)
+- Every step is a model round trip and costs real time. FINISH IN 8 STEPS OR FEWER whenever possible.
+- LEAN PATH: (game name is free in context) → at most 1 web_search → 1 summary analyze → build → run_luau once → fix max 2 times → short report.
+- Do NOT narrate, restate plans, or summarize progress between steps. Tool calls only while working.
+- Do NOT verify with extra steps unless run_luau errored. A delivered working script beats a fully researched one — when in doubt, BUILD.
+- NEVER announce a script without delivering it: if you write "here is the script", the COMPLETE ```lua code MUST be in that SAME reply. Once you give your final answer the turn ENDS — you cannot add anything after it, so finish the whole task first.
+
+WORKING SCRIPT STANDARD (how you are judged)
+- You are judged ONLY by whether the delivered script RUNS. Not by research quality, not by explanation length.
+- A script "works" ONLY after run_luau returns EXEC OK. Before that it is UNVERIFIED — never call it working.
+- If run_luau fails, FIX the code and run again — up to 3 attempts. Only give up after 3 real failures, and then say exactly what error you could not fix.
+- Your FINAL reply must state: SCRIPT RUNNING ✓ or ✗, and how to toggle/stop the script (e.g. a keybind or button it creates).
+- NO RANDOM OUTPUT: when a script was requested, do NOT reply with tutorials, "here are some ideas", safety lectures, general game info, or multi-topic answers. Either build and deliver the script, or state precisely what evidence you still need to build it.
+- Stay ON-TARGET: if the user asked for auto-steal, deliver auto-steal. Do not add unrelated features the user never asked for.
+
+SCRIPT RULES
+- Complete runnable Luau; correct service usage (game:GetService); wrap risky operations in pcall.
+- Scripts that create loops, connections, or GUIs must be re-runnable: destroy/clean up anything they previously created (name your objects, keep a state table), and expose a simple stop mechanism.
+- Never hard-crash the client: avoid infinite tight loops without task.wait().
+- Target the LOCAL client only. Do not attempt to touch server-only instances or other players' clients.
+- Respect tool results as ground truth: never claim something ran unless run_luau returned success.
+
+RESPONSE FORMAT
+- While working: request tools through the tool_calls mechanism. Do not narrate more than one short sentence per step.
+- TOOL LINE FALLBACK (use this when the tool_calls mechanism is not active on this connection): request tools by emitting plain lines, one per line, as your ENTIRE reply — the TinyDex client executes them locally and returns TOOL_RESULT blocks:
+TOOL_CALL {"id":"c1","tool":"analyze_game","args":{"scope":"summary"}}
+TOOL_CALL {"id":"c2","tool":"run_luau","args":{"code":"print('hi')"}}
+Tool names: analyze_game, inspect, list_children, search_game, read_property, get_selection, get_logs, get_game_info, web_search, run_luau, save_draft, set_property, create_instance, destroy_instance. While tool results are pending, emit nothing except TOOL_CALL lines. After TOOL_RESULT blocks arrive, continue with more TOOL_CALL lines or give the final answer as plain text with NO TOOL_CALL lines.
+- Final answer: plain text with ```lua fenced blocks for any script code (they render as RUN/COPY cards). Keep it concise and practical.
+- Never mention model vendors, provider names, routing vendors, or infrastructure labels.
+- Never fabricate tool results or capabilities. If a tool fails, say what failed and adapt.
+]]
+
+local function buildContext(userPrompt)
+  local parts = {
+    "CURRENT PRODUCT: PRIMEz Studios TinyDex v23 (Full Scripts Client, agent mode)",
+    "OFFICIAL SITE: https://primez-guard.vercel.app/",
+    ("CURRENT GAME: %s (PlaceId %d) — use this game name when researching or building game scripts"):format(getGameInfo().name, game.PlaceId),
+    "AGENT SYSTEM PROMPT:",
+    PULSAR_SYSTEM,
+    "",
+    "TOOL EXECUTION RULES",
+    "- Tools execute on the live client; role='tool' messages in the history are their real results.",
+    "- exec permission: " .. (AGENT_PERMISSIONS.execution and "ON (run_luau allowed)" or "OFF (run_luau will be refused)"),
+    "- auto-run expectation: " .. (AGENT_PERMISSIONS.autoRun and "user wants generated scripts executed automatically" or "user reviews scripts before running"),
+    "- mutate permission: " .. (AGENT_PERMISSIONS.mutate and "ON" or "OFF"),
+    "- luau execution runtime: " .. (Terminal.available and "executor with loadstring (execution supported)" or "no loadstring (execution unavailable; save_draft only)"),
+  }
+
+  local explicitTarget = nil
+  if type(userPrompt) == "string" and userPrompt ~= "" then
+    local matchTarget = userPrompt:match("[Ii]nspect%s+([%w_%.]+)")
+      or userPrompt:match("[Cc]heck%s+([%w_%.]+)")
+      or userPrompt:match("[Ss]how%s+([%w_%.]+)")
+    if matchTarget then explicitTarget = resolveTarget(matchTarget) end
+    if not explicitTarget then
+      for _, sName in ipairs(KNOWN_SERVICES) do
+        if userPrompt:lower():find(sName:lower(), 1, true) then
+          explicitTarget = resolveTarget(sName)
+          if explicitTarget then break end
+        end
+      end
+    end
+  end
+
+  local targetInst = explicitTarget or (includeSelection and selected or nil)
+  if targetInst then
+    table.insert(parts, "CURRENT TARGET / SELECTED INSTANCE:")
+    table.insert(parts, ("Name: %s | Class: %s | Path: %s"):format(
+      tostring(targetInst.Name), tostring(targetInst.ClassName), tostring(pathOf(targetInst))))
+    local okKids, kids = pcall(function() return targetInst:GetChildren() end)
+    if okKids and type(kids) == "table" then
+      local childNames = {}
+      for i = 1, math.min(#kids, 20) do
+        childNames[#childNames + 1] = kids[i].Name .. " <" .. kids[i].ClassName .. ">"
+      end
+      table.insert(parts, "First children: " .. (#childNames > 0 and table.concat(childNames, ", ") or "(none)"))
+    end
+  elseif includeSelection then
+    table.insert(parts, "LIVE SELECTION: none. Tip: select an instance in Explorer, or use the inspect/analyze_game tools.")
+  else
+    table.insert(parts, "LIVE SELECTION: disabled by user.")
+  end
+
+  return table.concat(parts, "\n\n")
+end
+
+local function refreshPulsarStatus()
+  task.spawn(function()
+    local ok, raw = pcall(pulsarRequest, "GET", PRIMEZ .. "api/ai/status")
+    if ok then
+      local decodedOk, data = pcall(function() return HttpService:JSONDecode(raw) end)
+      if decodedOk and data and data.available then
+        pzStatus.Text = "● PULSAR ONLINE — agent tools armed"
+        pzStatus.TextColor3 = C.good
+      else
+        pzStatus.Text = "● PRIMEz replied, but AI status was unexpected"
+        pzStatus.TextColor3 = C.bad
+      end
+    else
+      pzStatus.Text = "● Offline / HTTP unavailable: " .. tostring(raw):sub(1, 80)
+      pzStatus.TextColor3 = C.bad
+    end
+  end)
+end
+
+local function trimConversation()
+  -- v23.4.2: 40 → 28 messages — smaller payloads get faster model responses.
+  while #conversation > 28 do table.remove(conversation, 1) end
+end
+
+-- PERF: tool outputs can be huge (deep analyze_game / long terminal logs).
+-- Cap what goes into history so every later agent request stays small and
+-- fast (free providers choke on megabyte payloads; also respects the 2mb limit).
+local HISTORY_TOOL_RESULT_LIMIT = 6000
+local function clipForHistory(text)
+  text = tostring(text or "")
+  if #text <= HISTORY_TOOL_RESULT_LIMIT then return text end
+  return text:sub(1, HISTORY_TOOL_RESULT_LIMIT)
+    .. ("\n…[TRUNCATED for history: first %d of %d chars kept]"):format(HISTORY_TOOL_RESULT_LIMIT, #text)
+end
+
+-- ── The agent loop ──────────────────────────────────────────────────────
+-- v23.4.3: live heartbeat. The status line only refreshed BETWEEN steps, so
+-- during a long model request (up to 90s x 3 attempts) it froze at
+-- "STEP 1/24 - 0:00" and PULSAR looked dead while still working. This loop
+-- refreshes the status every second while a turn is active.
+local agentRuntime = { active = false, step = 0, stepT0 = 0, turnT0 = 0, tools = 0, note = "working…" }
+task.spawn(function()
+  while true do
+    if agentRuntime.active then
+      local el = os.clock() - agentRuntime.stepT0
+      pzStatus.Text = ("● STEP %d/%d · this step %d:%02d · tools: %d · %s"):format(
+        agentRuntime.step, MAX_STEPS, math.floor(el / 60), math.floor(el % 60), agentRuntime.tools, agentRuntime.note)
+      pzStatus.TextColor3 = C.dim
+    end
+    task.wait(1)
+  end
+end)
+
+local function runAgentTurn(userPrompt)
+  local toolUses = 0
+  for step = 1, MAX_STEPS do
+    agentRuntime.active = true
+    agentRuntime.step = step
+    agentRuntime.stepT0 = os.clock()
+    if step == 1 then agentRuntime.turnT0 = agentRuntime.stepT0 end
+    agentRuntime.tools = toolUses
+    agentRuntime.note = "working…"
+    -- v23.4.1: retry failed requests. The free-tier provider fails
+    -- intermittently (rate limits / generic "Something went wrong" errors)
+    -- and the Render server cold-starts after idle — one bad request used
+    -- to kill the whole turn. Now: 3 attempts with waits between them.
+    local ok, raw = false, nil
+    for attempt = 1, 3 do
+      if attempt > 1 then
+        agentRuntime.note = ("retrying after request error (attempt %d/3)…"):format(attempt)
+        task.wait(attempt == 2 and 3 or 6)
+      end
+      ok, raw = pcall(pulsarRequest, "POST", PRIMEZ .. "api/ai/chat", {
+        agent = true,
+        step = step,
+        tools = TOOL_SCHEMAS,
+        model = SELECTED_MODEL_ID,
+        context = buildContext(userPrompt),
+        messages = conversation,
+      })
+      if ok then break end
+    end
+    if not ok then
+      addChatMessage("CONNECTION ERROR", tostring(raw) .. "\n\n3 attempts failed. If the PRIMEz server was idle (free-tier cold start), wait ~1 minute, then say 'continue' — I'll resume exactly where I stopped.", true)
+      agentRuntime.active = false
+      pzStatus.Text = "● Request failed (3 attempts)"
+      pzStatus.TextColor3 = C.bad
+      return false
+    end
+    local decodedOk, data = pcall(function() return HttpService:JSONDecode(raw) end)
+    if not decodedOk or type(data) ~= "table" then
+      addChatMessage("CONNECTION ERROR", "Invalid response from PRIMEz AI (not JSON).", true)
+      return false
+    end
+    if data.success == false then
+      addChatMessage("PRIMEz ERROR", tostring(data.error or "unknown error"), true)
+      return false
+    end
+
+    -- New contract: explicit tool_calls round.
+    if type(data.tool_calls) == "table" and #data.tool_calls > 0 then
+      if type(data.reply) == "string" and data.reply:match("%S") then
+        addChatMessage("PULSAR", data.reply)
+      end
+      for _, call in ipairs(data.tool_calls) do
+        local callId = tostring(call and call.id or ("call_" .. step .. "_" .. toolUses))
+        local name = tostring(call and call.name or "?")
+        local args = call and call.args or call and call.arguments or {}
+        local result = dispatchTool(name, args)
+        toolUses += 1
+        local summary = tostring(result.output or "")
+        if #summary > 90 then summary = summary:sub(1, 90) .. "…" end
+        summary = summary:gsub("[\r\n]+", " ")
+        addToolChip(name, summary, result.ok)
+        conversation[#conversation + 1] = {
+          role = "tool",
+          tool_call_id = callId,
+          name = name,
+          arguments = args,
+          content = clipForHistory(result.output),
+        }
+        -- Auto-run companion: if the agent wrote a script but only saved it as
+        -- a draft while AUTO-RUN is ON, run it through the terminal as well.
+        if name == "save_draft" and AGENT_PERMISSIONS.autoRun and AGENT_PERMISSIONS.execution and result.ok then
+          local draft = editor.Text or ""
+          if not draft:match("^%s*$") then
+            addToolChip("auto_run", "AUTO-RUN executing saved draft (" .. #draft .. " chars)", true)
+            local runResult = Terminal.exec(draft, "PULSAR auto-run")
+            conversation[#conversation + 1] = {
+              role = "tool",
+              tool_call_id = callId .. "_autorun",
+              name = "run_luau",
+              arguments = { code = (#draft > 6000) and (draft:sub(1, 6000) .. "\n--[[ code truncated for history ]]") or draft },
+              content = clipForHistory(("AUTO-RUN of saved draft — EXEC %s in %d ms\n%s"):format(
+                runResult.ok and "OK" or "FAILED", runResult.duration or 0, runResult.output)),
+            }
+          end
+        end
+      end
+      trimConversation()
+      task.wait(0.1)
+    else
+      -- Final reply (done=true) or legacy response.
+      local reply = (type(data.reply) == "string") and data.reply or nil
+      if not reply then
+        addChatMessage("CONNECTION ERROR", "PRIMEz AI returned no reply and no tool calls.", true)
+        return false
+      end
+      -- Text tool protocol (current PRIMEz backend): the model asks for
+      -- tools via TOOL_CALL lines; execute them and feed results back.
+      local textCalls = parseTextToolCalls(reply)
+      -- v22 bug fix: a backend that leaks raw tool_calls JSON inside `reply`.
+      local leaked = extractLeakedToolCalls(reply)
+      if textCalls then
+        local parts = {}
+        for _, call in ipairs(textCalls) do
+          local result = dispatchTool(call.name, call.args)
+          toolUses += 1
+          local summary = tostring(result.output or ""):gsub("[\r\n]+", " ")
+          if #summary > 90 then summary = summary:sub(1, 90) .. "…" end
+          addToolChip(call.name, summary, result.ok)
+          parts[#parts + 1] = ("TOOL_RESULT %s (%s)\n%s"):format(call.id, call.name, clipForHistory(result.output))
+        end
+        parts[#parts + 1] = "Tool results above are live facts from the client. Continue: emit more TOOL_CALL lines if needed, otherwise give the final answer as plain text with NO TOOL_CALL lines."
+        conversation[#conversation + 1] = { role = "assistant", content = reply }
+        conversation[#conversation + 1] = { role = "user", content = table.concat(parts, "\n\n") }
+        trimConversation()
+        task.wait(0.1)
+      elseif leaked then
+        addChatMessage("PULSAR", "The PRIMEz backend sent raw tool calls inside the reply text (v22 bug detected). Executing them anyway…", true)
+        for _, call in ipairs(leaked) do
+          local callId = tostring(call and call.id or ("leaked_" .. toolUses))
+          local name = tostring(call and call.name or "?")
+          local args = call and call.args or call and call.arguments or {}
+          local result = dispatchTool(name, args)
+          toolUses += 1
+          local summary = tostring(result.output or ""):gsub("[\r\n]+", " ")
+          if #summary > 90 then summary = summary:sub(1, 90) .. "…" end
+          addToolChip(name, summary, result.ok)
+          conversation[#conversation + 1] = {
+            role = "tool",
+            tool_call_id = callId,
+            name = name,
+            arguments = args,
+            content = clipForHistory(result.output),
+          }
+        end
+        trimConversation()
+        task.wait(0.1)
+      else
+        conversation[#conversation + 1] = { role = "assistant", content = reply }
+        trimConversation()
+        renderReply(reply)
+        -- v23.4.4: mechanical guarantee — if the final reply delivered lua
+        -- code and auto-run + exec are ON, execute the largest block and
+        -- report EXEC OK/FAILED, so the user always knows if it really runs.
+        if AGENT_PERMISSIONS.autoRun and AGENT_PERMISSIONS.execution then
+          local blocks, pos = {}, 1
+          while true do
+            local a = reply:find("```", pos, true)
+            if not a then break end
+            local b = reply:find("```", a + 3, true)
+            if not b then break end
+            local code = reply:sub(a + 3, b - 1)
+            local nl = code:find("\n", 1, true)
+            local first = nl and code:sub(1, nl - 1) or ""
+            local lang = first:match("^%s*(%a+)")
+            if lang and (lang:lower() == "lua" or lang:lower() == "luau") then
+              code = nl and code:sub(nl + 1) or code
+            end
+            code = code:gsub("^%s*\n", ""):gsub("\n%s*$", "")
+            if code:match("%S") then blocks[#blocks + 1] = code end
+            pos = b + 3
+          end
+          if #blocks > 0 then
+            local best = blocks[1]
+            for i = 2, #blocks do
+              if #blocks[i] > #best then best = blocks[i] end
+            end
+            local result = Terminal.exec(best, "PULSAR delivery check")
+            if result.ok then
+              addChatMessage("PULSAR", "✅ DELIVERED SCRIPT RUNNING — auto-executed the final script (" .. #best .. " chars, " .. result.duration .. " ms). Use the script's own toggle/keybind to stop it, or re-run it to clean up.")
+            else
+              addChatMessage("PULSAR", "❌ DELIVERED SCRIPT FAILED — " .. tostring(result.output):sub(1, 200))
+            end
+          end
+        end
+        agentRuntime.active = false
+        local turnSecs = math.floor(os.clock() - agentRuntime.turnT0)
+        pzStatus.Text = ("● AGENT DONE · %d tool uses · %d:%02d · ready"):format(toolUses, math.floor(turnSecs / 60), turnSecs % 60)
+        pzStatus.TextColor3 = C.good
+        return true
+      end
+    end
+  end
+  addChatMessage("PULSAR", ("I used all %d automatic agent steps this turn and the task is still not finished. Say 'continue' and I will pick up exactly where I stopped and finish it."):format(MAX_STEPS))
+  agentRuntime.active = false
+  pzStatus.Text = "● Step budget used — say continue"
+  pzStatus.TextColor3 = C.dim
+  return true
+end
+
+local pendingPrompt = nil
+local function sendPulsar()
+  if busy then
+    -- v23.4.3: messages typed while PULSAR is working were silently
+    -- swallowed (looked dead). Queue them instead and auto-send when the
+    -- current task finishes.
+    local queued = promptBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
+    if queued ~= "" then
+      pendingPrompt = queued
+      promptBox.Text = ""
+      flash("queued — PULSAR will run it when the current task finishes", C.dim)
+    end
+    return
+  end
+  local prompt = promptBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
+  if prompt == "" then return end
+  promptBox.Text = ""
+  busy = true
+  sendBtn.Text = "..."
+  sendBtn.AutoButtonColor = false
+  table.insert(conversation, { role = "user", content = prompt })
+  addChatMessage("YOU", prompt)
+  task.spawn(function()
+    local ok = pcall(runAgentTurn, prompt)
+    if not ok then addChatMessage("AGENT ERROR", "The agent loop crashed unexpectedly.", true) end
+    agentRuntime.active = false
+    busy = false
+    sendBtn.Text = "SEND"
+    sendBtn.AutoButtonColor = true
+    -- v23.4.3: auto-send the queued message (if any) now that we're free.
+    if pendingPrompt then
+      local nextPrompt = pendingPrompt
+      pendingPrompt = nil
+      task.wait(0.5)
+      promptBox.Text = nextPrompt
+      sendPulsar()
+    end
+  end)
+end
+
+sendBtn.MouseButton1Click:Connect(sendPulsar)
+promptBox.FocusLost:Connect(function(enterPressed)
+  if enterPressed then sendPulsar() end
+end)
+
+contextBtn.MouseButton1Click:Connect(function()
+  includeSelection = not includeSelection
+  contextBtn.Text = includeSelection and "● Selection: ON" or "○ Selection: OFF"
+  contextBtn.TextColor3 = includeSelection and C.hot or C.dim
+end)
+
+execBtn.MouseButton1Click:Connect(function()
+  AGENT_PERMISSIONS.execution = not AGENT_PERMISSIONS.execution
+  execBtn.Text = AGENT_PERMISSIONS.execution and "EXEC ON" or "EXEC OFF"
+  execBtn.BackgroundColor3 = AGENT_PERMISSIONS.execution and Color3.fromRGB(48, 29, 79) or Color3.fromRGB(40, 40, 48)
+  flash("agent execution " .. (AGENT_PERMISSIONS.execution and "enabled" or "disabled"), AGENT_PERMISSIONS.execution and C.good or C.bad)
+end)
+
+autoRunBtn.MouseButton1Click:Connect(function()
+  AGENT_PERMISSIONS.autoRun = not AGENT_PERMISSIONS.autoRun
+  autoRunBtn.Text = AGENT_PERMISSIONS.autoRun and "AUTO-RUN ON" or "AUTO-RUN OFF"
+  autoRunBtn.BackgroundColor3 = AGENT_PERMISSIONS.autoRun and Color3.fromRGB(48, 29, 79) or Color3.fromRGB(40, 40, 48)
+  flash("auto-run " .. (AGENT_PERMISSIONS.autoRun and "enabled" or "disabled"), AGENT_PERMISSIONS.autoRun and C.good or C.bad)
+end)
+
+syncBtn.MouseButton1Click:Connect(function()
+  if syncBtn.Text == "SYNCING..." then return end
+  markInspectionIndexDirty()
+  syncBtn.Text = "SYNCING..."
+  task.spawn(function()
+    local ok, result = pcall(rebuildInspectionIndex)
+    syncBtn.Text = "SYNC DATA"
+    if ok then
+      flash(("inspection index synced · %d objects"):format(inspectionIndexCount), C.good)
+    else
+      flash("inspection sync failed: " .. tostring(result), C.bad)
+    end
+  end)
+end)
+
+clearBtn.MouseButton1Click:Connect(function()
+  conversation = {}
+  for _, child in ipairs(chatFeed:GetChildren()) do
+    if child:IsA("Frame") then child:Destroy() end
+  end
+  addChatMessage("PULSAR", "Conversation cleared. Tools stay armed. Official PRIMEz site: https://primez-guard.vercel.app/")
+end)
+
+addChatMessage("PULSAR", "I'm PULSAR AGENT — TinyDex v23 Full Scripts Client. I can research this game's current scripts ONLINE (web_search), analyze the whole game (services, characters, remotes, UI), write complete Luau scripts for what you need, and EXECUTE them in the terminal automatically. Execution: "
+  .. (Terminal.available and "AVAILABLE (loadstring detected)" or "unavailable in this runtime (Studio-safe mode)") .. ". Describe what you want built and I'll get to work.")
+refreshPulsarStatus()
+-- v23.1 PERF: no boot-time full-game index build (it froze big games and
+-- caused crashes). The index builds lazily via the SYNC DATA button or the
+-- first deep analyze_game — always capped and yielding.
 
 gotoTab("Props")
 safe("props", refreshProps)
