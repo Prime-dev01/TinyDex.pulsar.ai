@@ -1479,6 +1479,8 @@ do
     "Official PRIMEz site — releases, access and the PRIMEz hub.", SITE_URL)
   linkCard(226, Color3.fromRGB(88, 101, 242), "PRIMEz DISCORD",
     "Community server — support, previews and announcements.", DISCORD_URL)
+  linkCard(322, Color3.fromRGB(160, 83, 255), "GET PULSAR AI",
+    "Standalone build — join the PRIMEz Discord to get the PULSAR AI version.", DISCORD_URL)
 
   local foot = Instance.new("TextLabel")
   foot.Size = UDim2.new(1, -24, 0, 16)
