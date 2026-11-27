@@ -2629,6 +2629,26 @@ end)()
 local Terminal = {}
 Terminal.runs = 0
 
+-- Crash guard: detect chunks that would freeze the client before running them.
+function Terminal.unsafeReason(code)
+  local scrubbed = code:gsub("%-%-%[%b[]%]", " ")
+  scrubbed = scrubbed:gsub("%-%-[^\n]*", " ")
+  scrubbed = scrubbed:gsub("%[%b[]%]", " ")
+  scrubbed = scrubbed:gsub('"[^"\n]*"', ' "" '):gsub("'[^\'\n]*'", " '' ")
+  local yieldKw = scrubbed:find("task%.wait") or scrubbed:find("task%.defer")
+    or scrubbed:find(":%s*Wait%s*%(") or scrubbed:find("[^%w_%.]wait%s*%(")
+    or scrubbed:find("WaitForChild") or scrubbed:find("Heartbeat")
+    or scrubbed:find("RenderStepped") or scrubbed:find("Stepped")
+  if yieldKw then return nil end
+  if scrubbed:find("while%s+true%s*do") or scrubbed:find("while%s+1%s*do") then
+    return "`while true do` loop with no task.wait() inside -- it spins without yielding and freezes the client"
+  end
+  if (scrubbed:find("^repeat[^%w_]") or scrubbed:find("[^%w_]repeat[^%w_]")) and scrubbed:find("until%s+false") then
+    return "`repeat ... until false` loop with no task.wait() inside -- it spins without yielding and freezes the client"
+  end
+  return nil
+end
+
 function Terminal.exec(code, label)
   local result = { ok = false, output = "", duration = 0 }
   if type(code) ~= "string" or code:match("^%s*$") then
@@ -2675,6 +2695,14 @@ function Terminal.exec(code, label)
   if not compileOk or type(chunk) ~= "function" then
     restore()
     result.output = "compile error: " .. tostring(compileErr)
+    out("✖ " .. result.output, C.bad)
+    return result
+  end
+  local unsafeWhy = Terminal.unsafeReason and Terminal.unsafeReason(code)
+  if unsafeWhy then
+    restore()
+    result.output = "blocked (crash guard): " .. unsafeWhy
+      .. ". Fix: put task.wait() inside the loop, or ask PULSAR to rewrite it with a yield."
     out("✖ " .. result.output, C.bad)
     return result
   end
