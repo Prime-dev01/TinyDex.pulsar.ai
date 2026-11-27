@@ -55,11 +55,13 @@ local filter   = "ALL"  -- ALL | remote | log | instance | click
 local watchers = 0
 local stats    = { remote = 0, log = 0, instance = 0, click = 0 }
 
+local liveRender -- forward decl: set once the feed UI exists
 local function push(kind, text)
 	if not enabled then return end
 	stats[kind] = (stats[kind] or 0) + 1
 	entries[#entries + 1] = { kind = kind, text = tostring(text), at = os.time() }
 	if #entries > MAX_ENTRIES then table.remove(entries, 1) end
+	if liveRender then pcall(liveRender, entries[#entries]) end
 end
 
 local function safeConnect(signal, fn)
@@ -178,6 +180,20 @@ local function renderEntry(e)
 	return row
 end
 
+liveRender = function(e)
+	if not visible(e) then return end
+	renderEntry(e)
+	local firstRow, rowCount = nil, 0
+	for _, c in ipairs(feed:GetChildren()) do
+		if c:IsA("TextLabel") then
+			rowCount += 1
+			if not firstRow then firstRow = c end
+		end
+	end
+	if rowCount > 140 and firstRow then firstRow:Destroy() end
+	feed.CanvasPosition = Vector2.new(0, feedLayout.AbsoluteContentSize.Y)
+end
+
 local function refreshFeed()
 	for _, child in ipairs(feed:GetChildren()) do
 		if child:IsA("TextLabel") then child:Destroy() end
@@ -276,6 +292,9 @@ for _, kind in ipairs({ "ALL", "remote", "log", "instance", "click" }) do
 end
 
 -- ── collectors (all passive) ───────────────────────────────────────────────
+local MAX_PROMPT_WATCH = 80
+local promptsWatched = 0
+
 local function watchRemote(r)
 	if watchers >= MAX_REMOTE_WATCH then return end
 	if not r:IsA("RemoteEvent") then return end
@@ -287,9 +306,40 @@ local function watchRemote(r)
 	end)
 end
 
-pcall(function()
-	for _, d in ipairs(game:GetDescendants()) do
-		pcall(function() watchRemote(d) end)
+local function watchClickable(d)
+	if promptsWatched >= MAX_PROMPT_WATCH then return end
+	if d:IsA("ClickDetector") then
+		promptsWatched += 1
+		local path = d:GetFullName()
+		safeConnect(d.MouseClick, function(who)
+			pcall(function() push("click", path .. "  ←  " .. tostring(who)) end)
+		end)
+	elseif d:IsA("ProximityPrompt") then
+		promptsWatched += 1
+		local path = d:GetFullName()
+		safeConnect(d.Triggered, function(who)
+			pcall(function() push("click", path .. "  ←  " .. tostring(who)) end)
+		end)
+	end
+end
+
+-- v1.1 PERF: never walk the whole DataModel in one frame — that froze big
+-- games (the same bug TinyDex v23.1 fixed for its boot). Instead: capped,
+-- chunked BFS in a background task that yields every 400 nodes.
+task.spawn(function()
+	local stack = { game }
+	local seen = 0
+	while #stack > 0 and seen < 4000 do
+		local obj = table.remove(stack)
+		seen += 1
+		pcall(function() watchRemote(obj) end)
+		pcall(function() watchClickable(obj) end)
+		pcall(function()
+			for _, child in ipairs(obj:GetChildren()) do
+				stack[#stack + 1] = child
+			end
+		end)
+		if seen % 400 == 0 then task.wait() end
 	end
 end)
 
@@ -298,16 +348,8 @@ safeConnect(game.DescendantAdded, function(d)
 		if d:IsA("RemoteEvent") then
 			watchRemote(d)
 			push("instance", "RemoteEvent appeared: " .. d:GetFullName())
-		elseif d:IsA("ClickDetector") then
-			local path = d:GetFullName()
-			safeConnect(d.MouseClick, function(who)
-				pcall(function() push("click", path .. "  ←  " .. tostring(who)) end)
-			end)
-		elseif d:IsA("ProximityPrompt") then
-			local path = d:GetFullName()
-			safeConnect(d.Triggered, function(who)
-				pcall(function() push("click", path .. "  ←  " .. tostring(who)) end)
-			end)
+		else
+			watchClickable(d)
 		end
 	end)
 end)
