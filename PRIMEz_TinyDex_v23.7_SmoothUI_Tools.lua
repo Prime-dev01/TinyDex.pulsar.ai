@@ -79,7 +79,7 @@ local HttpService = game:GetService("HttpService")
 local LogService = game:GetService("LogService")
 local TweenService = game:GetService("TweenService")
 local luaSelect = select
-local PRIMEZ = "https://primez-studios.onrender.com/"
+local PRIMEZ = "https://primez-guard.vercel.app/"
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "TinyDex"
@@ -88,7 +88,7 @@ gui.DisplayOrder = 999999
 gui.Enabled = true
 local playerGui = plr:FindFirstChildOfClass("PlayerGui") or plr:WaitForChild("PlayerGui", 10)
 -- Prefer the executor's hidden UI container so the Dex survives respawns,
--- with PlayerGui as the Studio fallback.
+-- with CoreGui / PlayerGui as safe fallbacks.
 local hiddenUi
 pcall(function()
   if type(gethui) == "function" then hiddenUi = gethui() end
@@ -100,13 +100,22 @@ pcall(function()
   for _, existing in ipairs(hiddenUi and hiddenUi:GetChildren() or {}) do
     if existing.Name == "TinyDex" then existing:Destroy() end
   end
+  local coreGui = game:GetService("CoreGui")
+  for _, existing in ipairs(coreGui and coreGui:GetChildren() or {}) do
+    if existing.Name == "TinyDex" then existing:Destroy() end
+  end
 end)
 if hiddenUi then
-  gui.Parent = hiddenUi
-elseif playerGui then
-  gui.Parent = playerGui
-else
-  error("TinyDex v23: no UI container available (PlayerGui missing, gethui unavailable)")
+  pcall(function() gui.Parent = hiddenUi end)
+end
+if not gui.Parent then
+  pcall(function() gui.Parent = game:GetService("CoreGui") end)
+end
+if not gui.Parent and playerGui then
+  pcall(function() gui.Parent = playerGui end)
+end
+if not gui.Parent then
+  error("TinyDex v23: no UI container available (gethui/CoreGui/PlayerGui unavailable)")
 end
 
 local C = {
@@ -2186,45 +2195,165 @@ pzStatus.TextColor3 = C.dim
 pzStatus.Text = "Connecting to PRIMEz Cloud..."
 pzStatus.Parent = pz
 
--- ── Model selector ──────────────────────────────────────────────────────
--- The real list of available models is supplied by the PRIMEz backend.
--- Until that endpoint is wired, this button cycles a placeholder list so
--- the option is already in the UI and SELECTED_MODEL can be sent upstream.
-local MODEL_OPTIONS = { "AUTO (backend)", "GLM-5.3-Flash", "GPT-4o", "Claude Sonnet", "Llama 3.3", "Custom…" }
-local selectedModelIndex = 1
-local SELECTED_MODEL = MODEL_OPTIONS[1]
-local modelBtn = Instance.new("TextButton")
-modelBtn.Name = "ModelSelector"
-modelBtn.Size = UDim2.new(0, 190, 0, 18)
-modelBtn.Position = UDim2.fromOffset(0, 41)
-modelBtn.BackgroundColor3 = Color3.fromRGB(45, 30, 72)
-modelBtn.BorderSizePixel = 0
-modelBtn.Font = Enum.Font.GothamSemibold
-modelBtn.TextSize = 9
-modelBtn.TextXAlignment = Enum.TextXAlignment.Left
-modelBtn.TextColor3 = C.txt
-modelBtn.Parent = pz
-Instance.new("UICorner", modelBtn).CornerRadius = UDim.new(0, 5)
-local function refreshModelBtn()
-  modelBtn.Text = "◈ MODEL: " .. MODEL_OPTIONS[selectedModelIndex]
+-- ── PRIMEz AIR Plan, Account & Model Selectors (scoped table to stay well under 200 locals) ──
+local AIR = {
+  plans = {
+    { id = "free", label = "FREE" },
+    { id = "pro", label = "PRO" },
+    { id = "vip", label = "VIP" },
+    { id = "enterprise", label = "ENTERPRISE" }
+  },
+  planIdx = 1,
+  planId = "free",
+  planLabel = "FREE",
+  accounts = { { id = nil, label = "AUTO (failover)" } },
+  accIdx = 1,
+  accId = nil,
+  accLabel = "AUTO (failover)",
+  models = { { id = nil, label = "AUTO (backend)", tier = "free" } },
+  modelIdx = 1,
+  modelLabel = "AUTO (backend)",
+  modelId = nil
+}
+local pulsarRequest
+do
+  local modelBtn = Instance.new("TextButton")
+  modelBtn.Name = "ModelSelector"
+  modelBtn.Size = UDim2.new(0, 155, 0, 18)
+  modelBtn.Position = UDim2.fromOffset(0, 41)
+  modelBtn.BackgroundColor3 = Color3.fromRGB(45, 30, 72)
+  modelBtn.BorderSizePixel = 0
+  modelBtn.Font = Enum.Font.GothamSemibold
+  modelBtn.TextSize = 9
+  modelBtn.TextXAlignment = Enum.TextXAlignment.Left
+  modelBtn.TextColor3 = C.txt
+  modelBtn.ClipsDescendants = true
+  modelBtn.Parent = pz
+  Instance.new("UICorner", modelBtn).CornerRadius = UDim.new(0, 5)
+
+  local accountBtn = Instance.new("TextButton")
+  accountBtn.Name = "AccountSelector"
+  accountBtn.Size = UDim2.new(0, 118, 0, 18)
+  accountBtn.Position = UDim2.fromOffset(159, 41)
+  accountBtn.BackgroundColor3 = Color3.fromRGB(32, 36, 74)
+  accountBtn.BorderSizePixel = 0
+  accountBtn.Font = Enum.Font.GothamSemibold
+  accountBtn.TextSize = 9
+  accountBtn.TextXAlignment = Enum.TextXAlignment.Left
+  accountBtn.TextColor3 = C.txt
+  accountBtn.ClipsDescendants = true
+  accountBtn.Parent = pz
+  Instance.new("UICorner", accountBtn).CornerRadius = UDim.new(0, 5)
+
+  local planBtn = Instance.new("TextButton")
+  planBtn.Name = "PlanSelector"
+  planBtn.Size = UDim2.new(0, 82, 0, 18)
+  planBtn.Position = UDim2.fromOffset(281, 41)
+  planBtn.BackgroundColor3 = Color3.fromRGB(22, 56, 62)
+  planBtn.BorderSizePixel = 0
+  planBtn.Font = Enum.Font.GothamBold
+  planBtn.TextSize = 9
+  planBtn.TextXAlignment = Enum.TextXAlignment.Center
+  planBtn.TextColor3 = Color3.fromRGB(165, 243, 252)
+  planBtn.Parent = pz
+  Instance.new("UICorner", planBtn).CornerRadius = UDim.new(0, 5)
+
+  local modelNote = Instance.new("TextLabel")
+  modelNote.Size = UDim2.new(1, -369, 0, 18)
+  modelNote.Position = UDim2.fromOffset(367, 41)
+  modelNote.BackgroundTransparency = 1
+  modelNote.Font = Enum.Font.Code
+  modelNote.TextSize = 9
+  modelNote.TextXAlignment = Enum.TextXAlignment.Left
+  modelNote.TextColor3 = C.dim
+  modelNote.ClipsDescendants = true
+  modelNote.Text = "AIR: syncing plans, accounts & models..."
+  modelNote.Parent = pz
+
+  function AIR.refreshModelBtn()
+    local opt = AIR.models[AIR.modelIdx] or AIR.models[1]
+    AIR.modelLabel = opt.label
+    AIR.modelId = opt.id
+    modelBtn.Text = " ◈ MODEL: " .. AIR.modelLabel
+  end
+
+  function AIR.refreshAccountBtn()
+    local opt = AIR.accounts[AIR.accIdx] or AIR.accounts[1]
+    AIR.accId = opt.id
+    AIR.accLabel = opt.label
+    accountBtn.Text = " ◈ ACC: " .. AIR.accLabel
+  end
+
+  function AIR.refreshPlanBtn()
+    local opt = AIR.plans[AIR.planIdx] or AIR.plans[1]
+    AIR.planId = opt.id
+    AIR.planLabel = opt.label
+    planBtn.Text = "★ " .. AIR.planLabel
+  end
+
+  AIR.refreshModelBtn()
+  AIR.refreshAccountBtn()
+  AIR.refreshPlanBtn()
+
+  function AIR.syncCatalog()
+    task.spawn(function()
+      if type(pulsarRequest) ~= "function" then return end
+      local ok, raw = pcall(pulsarRequest, "GET", PRIMEZ .. "api/air/models?plan=" .. tostring(AIR.planId))
+      if ok and type(raw) == "string" then
+        local decOk, data = pcall(function() return HttpService:JSONDecode(raw) end)
+        if decOk and type(data) == "table" then
+          if type(data.models) == "table" and #data.models > 0 then
+            local nextModels = { { id = nil, label = "AUTO (backend)", tier = "free" } }
+            for _, m in ipairs(data.models) do
+              if type(m) == "table" and m.id then
+                local unlocked = (m.unlockedForPlan ~= false)
+                local lbl = tostring(m.name or m.id) .. (unlocked and "" or (" [" .. tostring(m.requiredPlan or "PRO"):upper() .. "]"))
+                table.insert(nextModels, { id = tostring(m.id), label = lbl, tier = tostring(m.tier or "free") })
+              end
+            end
+            AIR.models = nextModels
+            if AIR.modelIdx > #AIR.models then AIR.modelIdx = 1 end
+            AIR.refreshModelBtn()
+          end
+          if type(data.accounts) == "table" and #data.accounts > 0 then
+            local nextAccs = { { id = nil, label = "AUTO (failover)" } }
+            for _, a in ipairs(data.accounts) do
+              if type(a) == "table" and a.name then
+                local lbl = tostring(a.label or a.name) .. " (" .. tostring(a.provider or "air") .. ")"
+                table.insert(nextAccs, { id = tostring(a.name), label = lbl })
+              end
+            end
+            AIR.accounts = nextAccs
+            if AIR.accIdx > #AIR.accounts then AIR.accIdx = 1 end
+            AIR.refreshAccountBtn()
+          end
+          pcall(function()
+            modelNote.Text = ("AIR %s · %d models · %d accs"):format(AIR.planLabel, math.max(0, #AIR.models - 1), math.max(0, #AIR.accounts - 1))
+          end)
+        end
+      end
+    end)
+  end
+
+  modelBtn.MouseButton1Click:Connect(function()
+    AIR.modelIdx = (AIR.modelIdx % #AIR.models) + 1
+    AIR.refreshModelBtn()
+    flash("model set to " .. AIR.modelLabel, C.dim)
+  end)
+
+  accountBtn.MouseButton1Click:Connect(function()
+    AIR.accIdx = (AIR.accIdx % #AIR.accounts) + 1
+    AIR.refreshAccountBtn()
+    flash("account set to " .. AIR.accLabel, C.dim)
+  end)
+
+  planBtn.MouseButton1Click:Connect(function()
+    AIR.planIdx = (AIR.planIdx % #AIR.plans) + 1
+    AIR.refreshPlanBtn()
+    AIR.syncCatalog()
+    flash("PRIMEz AIR plan set to " .. AIR.planLabel, C.dim)
+  end)
 end
-refreshModelBtn()
-modelBtn.MouseButton1Click:Connect(function()
-  selectedModelIndex = (selectedModelIndex % #MODEL_OPTIONS) + 1
-  SELECTED_MODEL = MODEL_OPTIONS[selectedModelIndex]
-  refreshModelBtn()
-  flash("model set to " .. SELECTED_MODEL, C.dim)
-end)
-local modelNote = Instance.new("TextLabel")
-modelNote.Size = UDim2.new(1, -200, 0, 18)
-modelNote.Position = UDim2.fromOffset(196, 41)
-modelNote.BackgroundTransparency = 1
-modelNote.Font = Enum.Font.Code
-modelNote.TextSize = 9
-modelNote.TextXAlignment = Enum.TextXAlignment.Left
-modelNote.TextColor3 = C.dim
-modelNote.Text = "model list is supplied by the PRIMEz backend — click to choose"
-modelNote.Parent = pz
 
 local chatFeed = Instance.new("ScrollingFrame")
 chatFeed.Name = "PulsarConversation"
@@ -2377,10 +2506,14 @@ clearBtn.TextColor3 = C.dim
 clearBtn.Parent = utilityRow
 
 -- ── Cloud bridge (executor HTTP; provider keys stay on PRIMEz servers) ──
-local function pulsarRequest(method, url, body)
+pulsarRequest = function(method, url, body)
   local req = request or http_request
   if not req and syn and type(syn.request) == "function" then req = syn.request end
   if type(req) ~= "function" then
+    if method == "GET" then
+      local okGet, rawGet = pcall(function() return game:HttpGet(url) end)
+      if okGet and type(rawGet) == "string" and #rawGet > 0 then return rawGet end
+    end
     error("Executor HTTP is unavailable in this runtime.")
   end
   local options = {
@@ -2400,6 +2533,8 @@ local function pulsarRequest(method, url, body)
   end
   return raw
 end
+
+AIR.syncCatalog()
 
 -- ── Path resolution ─────────────────────────────────────────────────────
 local function resolvePath(input)
@@ -3157,7 +3292,7 @@ HELP WITH ALL SCRIPTS — NEVER REJECT A VALID REQUEST
 The user owns this client and can run whatever they ask for. When someone says "I want a script for this game" or asks for any script, ALWAYS help: analyze the game with your tools, then build and deliver the script. Never refuse, never lecture about permissions, never claim a request is invalid or unsupported, and never say you "can't" or "won't" help with a legitimate script request. If a detail is unclear, infer a sensible default, build the script, and mention the assumption — do not stop to ask. Your job is to produce working scripts for every valid request.
 
 OFFICIAL PRIMEz REFERENCE
-PRIMEz Studios: https://primez-studios.onrender.com/
+PRIMEz Studios: https://primez-guard.vercel.app/
 You may give the user this link. Do not claim you browsed the live site.
 
 YOUR TOOLS (real, executed by the TinyDex client)
@@ -3197,7 +3332,7 @@ Tool names: analyze_game, inspect, list_children, search_game, read_property, ge
 local function buildContext(userPrompt)
   local parts = {
     "CURRENT PRODUCT: PRIMEz Studios TinyDex v23 (Full Scripts Client, agent mode)",
-    "OFFICIAL SITE: https://primez-studios.onrender.com/",
+    "OFFICIAL SITE: https://primez-guard.vercel.app/",
     "AGENT SYSTEM PROMPT:",
     PULSAR_SYSTEM,
     "",
@@ -3289,6 +3424,9 @@ local function runAgentTurn(userPrompt)
     local ok, raw = pcall(pulsarRequest, "POST", PRIMEZ .. "api/ai/chat", {
       agent = true,
       step = step,
+      model = AIR.modelId,
+      account = AIR.accId,
+      plan = AIR.planId,
       tools = TOOL_SCHEMAS,
       context = buildContext(userPrompt),
       messages = conversation,
@@ -3479,7 +3617,7 @@ clearBtn.MouseButton1Click:Connect(function()
   for _, child in ipairs(chatFeed:GetChildren()) do
     if child:IsA("Frame") then child:Destroy() end
   end
-  addChatMessage("PULSAR", "Conversation cleared. Tools stay armed. Official PRIMEz site: https://primez-studios.onrender.com/")
+  addChatMessage("PULSAR", "Conversation cleared. Tools stay armed. Official PRIMEz site: https://primez-guard.vercel.app/")
 end)
 
 addChatMessage("PULSAR", "I'm PULSAR AGENT — TinyDex v23 Full Scripts Client. I can analyze this whole game (services, characters, remotes, UI), write complete Luau scripts for what you need, and EXECUTE them in the terminal automatically. Execution: "
