@@ -1,10 +1,8 @@
 --[[ ══════════════════════════════════════════════════════════════════════════
-  TinyDex v23.5 — PRIMEz Studios FULL SCRIPTS CLIENT  •  SMOOTH UI EDITION
+  TinyDex v23.5 — PRIMEz Studios FULL SCRIPTS CLIENT  •  SMOOTH UI 2 EDITION
+  NEW GUI: SmoothUI 2 — terminal-style boot, 3 themes (Midnight/Carbon/Ocean),
+  floating draggable P toggle. SafeBoot: PlayerGui-only UI, no boot HTTP.
   PULSAR AGENT edition: real tool-calling agent loop + executing Luau terminal.
-  UI: dark boot splash with animated progress bar, purple glow branding,
-      "PRIMEZ STUDIOS • ROBLOX SCRIPT EDITOR" subtitle. All v23.5 work unchanged.
-  MODEL SELECTOR: a "MODEL" button in the PULSAR AI tab cycles the selected
-      model; the real list is supplied by the PRIMEz backend later.
 
   WHAT'S NEW IN v23 (vs v22)
   • AGENT LOOP: the server may return tool_calls; TinyDex executes them live
@@ -36,6 +34,72 @@
   • search_game and the analyze_game remote scan cap their work per service
     and yield mid-scan.
 
+  WHAT'S NEW IN v23.2 (FLOATING TOGGLE)
+  • A round PRIMEz "P" button (black bg, white P, purple stroke) is pinned
+    at the BOTTOM-LEFT of the screen and always stays there.
+  • Tap it to hide the TinyDex window, tap again to show it. PULSAR, the
+    agent loop, tools and the terminal keep working while hidden.
+  • Showing the window snaps it fully back on screen — it can never be
+    stuck outside the viewport or impossible to grab.
+  • The X button still removes TinyDex completely, including the P button.
+
+  WHAT'S NEW IN v23.3 (DRAGGABLE P BUTTON)
+  • The P button can now be DRAGGED anywhere on screen — any side, any
+    corner — so it never has to sit on top of the game's mobile controls.
+  • Drag = move the button; quick tap = toggle the window (same as before).
+  • The button is live-clamped while dragging: it always stays fully
+    visible on screen and can never get lost off-screen.
+  • v23.3.1 FIX: tapping P to show the window no longer drifts it into a
+    corner. The window re-centers ONLY if part of it is off-screen; a
+    valid position is never rewritten.
+  • v23.3.2 FIX: P taps now use the Activated event. On mobile, InputEnded
+    could miss the button when the finger lifted slightly off it — P then
+    looked dead and the drag state could stick, making the button follow
+    the next touch. Drag state is now cleaned up globally and a finished
+    drag suppresses the tap for 0.35s, so drags never toggle the window.
+
+  WHAT'S NEW IN v23.4 (AUTO-FINISH + WEB RESEARCH)
+  • NO MORE "SAY CONTINUE": the agent budget is 8 → 24 steps per turn, so
+    PULSAR keeps working until the task is actually DONE (research →
+    analyze → build → execute → verify), not stopped mid-task.
+  • WEB RESEARCH: new web_search tool — PULSAR searches the internet
+    (DuckDuckGo, client-side via executor HTTP, no backend change) for
+    the game's current scripts, features, updates and meta.
+  • v23.4.1 FIX: failed AI requests no longer kill the whole turn — each
+    step retries up to 3 times (waits in between), and the HTTP timeout
+    is 90s instead of 45s so Render cold starts stop eating requests.
+    Invented tool names now get told the real tool list so the agent
+    self-corrects on the next step.
+  • v23.4.2 SPEED: the goal is a delivered script in under 5 minutes.
+    New SPEED RULES in the agent brain — finish in 8 steps or fewer, at
+    most ONE web search, summary analysis only, no narration between
+    steps. Status bar shows a live step + elapsed-time counter, and
+    history is trimmed tighter (28 messages) so requests stay fast.
+  • v23.4.3 FIX: status bar now has a live heartbeat (refreshes every
+    second, even mid-request — before, it froze at "STEP 1/24 · 0:00"
+    during long model waits and PULSAR looked dead). Messages typed
+    while PULSAR is working are QUEUED and auto-sent when the task
+    finishes instead of being silently swallowed. The agent brain is
+    forbidden from announcing a script without including the full code
+    in the same reply. AGENT DONE shows the total turn time.
+  • v23.4.4 FOCUS: PULSAR is a SCRIPT BUILDER, judged only by whether
+    the delivered script actually RUNS. New WORKING SCRIPT STANDARD in
+    the brain (a script "works" only after run_luau returns EXEC OK,
+    fix up to 3 attempts, final report states SCRIPT RUNNING ✓/✗ plus
+    how to stop it) and anti-random rules (no tutorials, no "here are
+    ideas", no off-topic chatter when a script was requested).
+    Mechanical guarantee: after the final reply, the delivered script's
+    largest lua block is auto-executed and reported EXEC OK / FAILED —
+    a broken script can never be passed off as working.
+  • GAME DETECTION: the game's real name is auto-detected (place info)
+    and sent to PULSAR with EVERY request; new get_game_info tool.
+  • SCRIPT WORKFLOW: for game-script requests PULSAR now follows:
+    identify the game → web_search its known features/scripts → analyze
+    the live game → build → execute. It knows the common script types
+    (auto-steal, autofarm/auto-collect, auto-buy, ESP, movement,
+    teleport, anti-AFK, GUI hubs, remote tools, lag tools).
+
+
   ── BACKEND CONTRACT — POST {PRIMEZ}/api/ai/chat ─────────────────────────
   request body:
     {
@@ -57,6 +121,18 @@
   • Server must NEVER place raw tool_calls JSON inside `reply`.
   • role="tool" entries in `messages` are tool results from the previous step.
 ═════════════════════════════════════════════════════════════════════════════ ]]
+
+-- ── WHAT'S NEW IN v23.6 (SMOOTH UI + THEMES) ──────────────────────────────
+-- • Terminal-style boot: a mini console types its own boot log ([BOOT],
+--   [ OK ], [SYNC]...) with a blinking caret while the bar fills, ambient
+--   glow + particles breathe, and the finished window springs in. Tap
+--   anywhere to skip straight to the reveal.
+-- • 3 THEMES — Midnight, Carbon, Ocean: pick one on the splash screen and it
+--   applies live across the whole interface; the choice is saved for the
+--   next launch (Midnight is the default).
+-- • Cleaned chrome: decorative glyphs removed from buttons (PICK, COPY
+--   SHOWN, RUN, COPY, AUTO-RUN, EXEC are plain text now). Features unchanged.
+
 
 -- DELTA-style boot: executors inject before the client finishes loading.
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -80,35 +156,19 @@ gui.ResetOnSpawn = false
 gui.DisplayOrder = 999999
 gui.Enabled = true
 local playerGui = plr:FindFirstChildOfClass("PlayerGui") or plr:WaitForChild("PlayerGui", 10)
--- Prefer the executor's hidden UI container so the Dex survives respawns,
--- with CoreGui / PlayerGui as safe fallbacks.
-local hiddenUi
-pcall(function()
-  if type(gethui) == "function" then hiddenUi = gethui() end
-end)
+local playerGui = plr:FindFirstChildOfClass("PlayerGui") or plr:WaitForChild("PlayerGui", 10)
+-- SafeBoot: PlayerGui-only UI container. gethui()/CoreGui are never touched:
+-- those calls crash clients whose executor is stale after a Roblox update.
 pcall(function()
   for _, existing in ipairs(playerGui and playerGui:GetChildren() or {}) do
     if existing.Name == "TinyDex" then existing:Destroy() end
   end
-  for _, existing in ipairs(hiddenUi and hiddenUi:GetChildren() or {}) do
-    if existing.Name == "TinyDex" then existing:Destroy() end
-  end
-  local coreGui = game:GetService("CoreGui")
-  for _, existing in ipairs(coreGui and coreGui:GetChildren() or {}) do
-    if existing.Name == "TinyDex" then existing:Destroy() end
-  end
 end)
-if hiddenUi then
-  pcall(function() gui.Parent = hiddenUi end)
-end
-if not gui.Parent then
-  pcall(function() gui.Parent = game:GetService("CoreGui") end)
-end
 if not gui.Parent and playerGui then
   pcall(function() gui.Parent = playerGui end)
 end
 if not gui.Parent then
-  error("TinyDex v23: no UI container available (gethui/CoreGui/PlayerGui unavailable)")
+  error("TinyDex v23: no UI container available (PlayerGui unavailable)")
 end
 
 local C = {
@@ -118,8 +178,661 @@ local C = {
   good = Color3.fromRGB(77, 224, 143), bad = Color3.fromRGB(255, 103, 128),
   line = Color3.fromRGB(72, 48, 125),
 }
+-- ── v23.6-SMOOTH UI: THEME SYSTEM ──────────────────────────────────────────
+-- 3 presets (Midnight / Carbon / Ocean). The active theme paints the shared
+-- C palette before anything builds, is switchable live from the boot splash
+-- via a full-interface re-tint, and is remembered for the next launch.
+local function tint(a, b, t)
+  return Color3.new(a.R + (b.R - a.R) * t, a.G + (b.G - a.G) * t, a.B + (b.B - a.B) * t)
+end
+local THEMES = {
+  Midnight = {
+    bg = Color3.fromRGB(12, 12, 20), row = Color3.fromRGB(17, 17, 29),
+    panel = Color3.fromRGB(20, 19, 34), txt = Color3.fromRGB(235, 232, 248),
+    dim = Color3.fromRGB(151, 145, 177), hot = Color3.fromRGB(160, 83, 255),
+    hot2 = Color3.fromRGB(105, 48, 210), good = Color3.fromRGB(77, 224, 143),
+    bad = Color3.fromRGB(255, 103, 128), line = Color3.fromRGB(72, 48, 125),
+    btnBg = Color3.fromRGB(39, 27, 65), btnHov = Color3.fromRGB(72, 43, 112),
+  },
+  Carbon = {
+    bg = Color3.fromRGB(10, 10, 12), row = Color3.fromRGB(15, 15, 17),
+    panel = Color3.fromRGB(19, 19, 22), txt = Color3.fromRGB(238, 238, 241),
+    dim = Color3.fromRGB(146, 146, 154), hot = Color3.fromRGB(88, 158, 255),
+    hot2 = Color3.fromRGB(28, 102, 204), good = Color3.fromRGB(77, 224, 143),
+    bad = Color3.fromRGB(255, 103, 128), line = Color3.fromRGB(66, 66, 76),
+    btnBg = Color3.fromRGB(35, 35, 40), btnHov = Color3.fromRGB(54, 54, 62),
+  },
+  Ocean = {
+    bg = Color3.fromRGB(8, 17, 21), row = Color3.fromRGB(12, 24, 29),
+    panel = Color3.fromRGB(15, 31, 37), txt = Color3.fromRGB(224, 242, 240),
+    dim = Color3.fromRGB(130, 164, 163), hot = Color3.fromRGB(0, 208, 178),
+    hot2 = Color3.fromRGB(0, 133, 116), good = Color3.fromRGB(77, 224, 143),
+    bad = Color3.fromRGB(255, 103, 128), line = Color3.fromRGB(33, 88, 84),
+    btnBg = Color3.fromRGB(15, 45, 47), btnHov = Color3.fromRGB(24, 64, 66),
+  },
+}
+local THEME_ORDER = { "Midnight", "Carbon", "Ocean" }
+local THEME_FILE = "primez_tinydex_theme.txt"
+local ACTIVE_THEME = "Midnight"
+pcall(function()
+  if type(readfile) == "function" and type(isfile) == "function" and isfile(THEME_FILE) then
+    local saved = (readfile(THEME_FILE) or ""):gsub("%s+", "")
+    if THEMES[saved] then ACTIVE_THEME = saved end
+  end
+end)
+local function saveTheme(n)
+  if type(writefile) == "function" then pcall(writefile, THEME_FILE, n) end
+end
+do -- paint the shared palette with the saved theme before anything builds
+  for k, v in pairs(THEMES[ACTIVE_THEME]) do C[k] = v end
+end
+
+
 local FULL = UDim2.new(0, 900, 0, 540)
 local MINI = UDim2.new(0, 900, 0, 58)
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- v23.6-SMOOTH UI: terminal-style boot sequence (presentation layer only)
+-- A mini console types its own boot log with a blinking caret while the bar
+-- fills and the ambient layers breathe; then it dissolves and reveals the
+-- finished window with entrance animations. NO feature logic is changed
+-- anywhere below — the window and the P button are simply created hidden and
+-- revealed when loading ends. Tap anywhere to skip the cosmetic layer.
+-- ═══════════════════════════════════════════════════════════════════════════
+local BOOTUI = { t0 = os.clock(), done = false, revealed = false, reveal = nil }
+do
+  local splashGui = Instance.new("ScreenGui")
+  splashGui.Name = "TinyDexBootSplash"
+  splashGui.ResetOnSpawn = false
+  splashGui.IgnoreGuiInset = true
+  splashGui.DisplayOrder = 9999999
+  pcall(function() splashGui.Parent = hiddenUi or playerGui or gui end)
+  pcall(function()
+    gui.Destroying:Connect(function() splashGui:Destroy() end)
+  end)
+
+  local overlay = Instance.new("Frame")
+  overlay.Name = "Overlay"
+  overlay.Size = UDim2.fromScale(1, 1)
+  overlay.BackgroundColor3 = Color3.fromRGB(8, 7, 14)
+  overlay.BorderSizePixel = 0
+  overlay.BackgroundTransparency = 1
+  overlay.Parent = splashGui
+  local ovGrad = Instance.new("UIGradient", overlay)
+  ovGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(16, 11, 30)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(8, 7, 14)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 9, 24)),
+  })
+  ovGrad.Rotation = 35
+  -- the backdrop gradient sways slowly so the room never feels frozen
+  task.spawn(function()
+    while splashGui.Parent do
+      local a = TweenService:Create(ovGrad, TweenInfo.new(7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Rotation = 65})
+      a:Play() a.Completed:Wait()
+      if not splashGui.Parent then break end
+      local b = TweenService:Create(ovGrad, TweenInfo.new(7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Rotation = 35})
+      b:Play() b.Completed:Wait()
+    end
+  end)
+
+  -- ambient glow blobs behind the stage (breathing, very low alpha)
+  local glowA = Instance.new("Frame")
+  glowA.Name = "GlowA"
+  glowA.AnchorPoint = Vector2.new(0.5, 0.5)
+  glowA.Position = UDim2.new(0.5, 0, 0.47, -20)
+  glowA.Size = UDim2.fromOffset(460, 460)
+  glowA.BackgroundColor3 = C.hot
+  glowA.BackgroundTransparency = 1
+  glowA.BorderSizePixel = 0
+  glowA.Parent = overlay
+  Instance.new("UICorner", glowA).CornerRadius = UDim.new(1, 0)
+  local glowB = Instance.new("Frame")
+  glowB.Name = "GlowB"
+  glowB.AnchorPoint = Vector2.new(0.5, 0.5)
+  glowB.Position = UDim2.new(0.5, 150, 0.47, 130)
+  glowB.Size = UDim2.fromOffset(300, 300)
+  glowB.BackgroundColor3 = C.hot2
+  glowB.BackgroundTransparency = 1
+  glowB.BorderSizePixel = 0
+  glowB.Parent = overlay
+  Instance.new("UICorner", glowB).CornerRadius = UDim.new(1, 0)
+
+  local stage = Instance.new("Frame")
+  stage.Name = "Stage"
+  stage.AnchorPoint = Vector2.new(0.5, 0.5)
+  stage.Position = UDim2.fromScale(0.5, 0.47)
+  stage.Size = UDim2.fromOffset(320, 252)
+  stage.BackgroundTransparency = 1
+  stage.Parent = overlay
+  local stageScale = Instance.new("UIScale", stage)
+  stageScale.Scale = 0.86
+
+  local logo = Instance.new("TextLabel")
+  logo.Name = "Logo"
+  logo.AnchorPoint = Vector2.new(0.5, 0)
+  logo.Position = UDim2.new(0.5, 0, 0, 14)
+  logo.Size = UDim2.fromOffset(320, 52)
+  logo.BackgroundTransparency = 1
+  logo.Font = Enum.Font.GothamBold
+  logo.TextSize = 40
+  logo.TextColor3 = C.txt
+  logo.Text = "◆  TinyDex"
+  logo.TextTransparency = 1
+  logo.Parent = stage
+  local logoGlow = Instance.new("UIStroke", logo)
+  logoGlow.Color = C.hot
+  logoGlow.Thickness = 1.2
+  logoGlow.Transparency = 1
+  local logoScale = Instance.new("UIScale", logo)
+  logoScale.Scale = 0.7
+  -- shimmer: a soft highlight sweeps across the letters on a loop
+  local logoGrad = Instance.new("UIGradient", logo)
+  logoGrad.Color = ColorSequence.new(
+    Color3.fromRGB(186, 182, 208), Color3.fromRGB(255, 255, 255), Color3.fromRGB(186, 182, 208))
+  logoGrad.Offset = Vector2.new(-1, 0)
+  task.spawn(function()
+    while splashGui.Parent do
+      local tw = TweenService:Create(logoGrad, TweenInfo.new(1.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Offset = Vector2.new(1, 0)})
+      tw:Play() tw.Completed:Wait()
+      if not splashGui.Parent then break end
+      logoGrad.Offset = Vector2.new(-1, 0)
+    end
+  end)
+
+  local sub = Instance.new("TextLabel")
+  sub.Name = "Subtitle"
+  sub.AnchorPoint = Vector2.new(0.5, 0)
+  sub.Position = UDim2.new(0.5, 0, 0, 70)
+  sub.Size = UDim2.fromOffset(320, 16)
+  sub.BackgroundTransparency = 1
+  sub.Font = Enum.Font.Gotham
+  sub.TextSize = 11
+  sub.TextColor3 = Color3.fromRGB(177, 145, 235)
+  sub.Text = "PRIMEz STUDIOS  •  PULSAR AGENT EDITION"
+  sub.TextTransparency = 1
+  sub.Parent = stage
+
+  -- ── the terminal card ────────────────────────────────────────────────────
+  local term = Instance.new("Frame")
+  term.Name = "Term"
+  term.AnchorPoint = Vector2.new(0.5, 0)
+  term.Position = UDim2.new(0.5, 0, 0, 92)
+  term.Size = UDim2.fromOffset(300, 128)
+  term.BackgroundColor3 = Color3.fromRGB(9, 9, 16)
+  term.BackgroundTransparency = 0.18
+  term.BorderSizePixel = 0
+  term.ClipsDescendants = true
+  term.Parent = stage
+  Instance.new("UICorner", term).CornerRadius = UDim.new(0, 10)
+  local termScale = Instance.new("UIScale", term)
+  termScale.Scale = 0.92
+  local termStroke = Instance.new("UIStroke", term)
+  termStroke.Color = Color3.fromRGB(255, 255, 255)
+  termStroke.Thickness = 1
+  termStroke.Transparency = 1
+
+  -- traffic dots + window title, like a real terminal emulator
+  local traffic = {}
+  local tcols = {
+    Color3.fromRGB(255, 95, 86), Color3.fromRGB(255, 189, 46), Color3.fromRGB(52, 214, 108),
+  }
+  for i = 1, 3 do
+    local d = Instance.new("Frame")
+    d.Name = "TDot" .. i
+    d.Position = UDim2.new(0, 10 + (i - 1) * 14, 0, 6)
+    d.Size = UDim2.fromOffset(8, 8)
+    d.BackgroundColor3 = tcols[i]
+    d.BackgroundTransparency = 1
+    d.BorderSizePixel = 0
+    d.Parent = term
+    Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
+    traffic[i] = d
+  end
+  local termTitle = Instance.new("TextLabel")
+  termTitle.Name = "TermTitle"
+  termTitle.Position = UDim2.new(0, 0, 0, 3)
+  termTitle.Size = UDim2.new(1, 0, 0, 14)
+  termTitle.BackgroundTransparency = 1
+  termTitle.Font = Enum.Font.Code
+  termTitle.TextSize = 10
+  termTitle.TextColor3 = C.dim
+  termTitle.Text = "tinydex: ~/boot"
+  termTitle.TextTransparency = 1
+  termTitle.Parent = term
+  local divider = Instance.new("Frame")
+  divider.Name = "Divider"
+  divider.Position = UDim2.new(0, 0, 0, 20)
+  divider.Size = UDim2.new(1, 0, 0, 1)
+  divider.BackgroundColor3 = C.dim
+  divider.BackgroundTransparency = 1
+  divider.BorderSizePixel = 0
+  divider.Parent = term
+
+  -- six log lines typed one by one; the tag is colored via RichText
+  local GREEN = Color3.fromRGB(108, 228, 152)
+  local function hexOf(c)
+    return string.format("#%02X%02X%02X",
+      math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5))
+  end
+  local LOG = {
+    { "BOOT", C.hot,  "booting TinyDex core..." },
+    { " OK ", GREEN,  "modules loaded (32)" },
+    { " OK ", GREEN,  "themes: Midnight / Carbon / Ocean" },
+    { "SYNC", C.hot2, "PRIMEz network link established" },
+    { " AI ", C.txt,  "PULSAR agent standing by" },
+    { "DONE", GREEN,  "welcome to TinyDex." },
+  }
+  local logLines = {}
+  for i, e in ipairs(LOG) do
+    local ln = Instance.new("TextLabel")
+    ln.Name = "Log" .. i
+    ln.Position = UDim2.new(0, 14, 0, 26 + (i - 1) * 15)
+    ln.Size = UDim2.new(1, -28, 0, 13)
+    ln.BackgroundTransparency = 1
+    ln.Font = Enum.Font.Code
+    ln.TextSize = 10
+    ln.TextXAlignment = Enum.TextXAlignment.Left
+    ln.RichText = true
+    ln.TextColor3 = C.dim
+    ln.Text = ""
+    ln.TextTransparency = 1
+    ln.Parent = term
+    logLines[i] = ln
+  end
+  -- blinking block caret that rides the active line
+  local caret = Instance.new("Frame")
+  caret.Name = "Caret"
+  caret.Position = UDim2.new(0, 14, 0, 27)
+  caret.Size = UDim2.fromOffset(7, 12)
+  caret.BackgroundColor3 = C.hot
+  caret.BackgroundTransparency = 0.15
+  caret.BorderSizePixel = 0
+  caret.Visible = false
+  caret.Parent = term
+  Instance.new("UICorner", caret).CornerRadius = UDim.new(0, 2)
+  task.spawn(function()
+    while splashGui.Parent do
+      caret.Visible = not caret.Visible
+      task.wait(0.42)
+    end
+  end)
+
+  local barBg = Instance.new("Frame")
+  barBg.Name = "BarBg"
+  barBg.AnchorPoint = Vector2.new(0.5, 0)
+  barBg.Position = UDim2.new(0.5, 0, 0, 230)
+  barBg.Size = UDim2.fromOffset(280, 6)
+  barBg.BackgroundColor3 = C.row
+  barBg.BorderSizePixel = 0
+  barBg.Parent = stage
+  barBg.ClipsDescendants = true
+  Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
+  -- moving shine streak riding along the track
+  local shine = Instance.new("Frame")
+  shine.Name = "Shine"
+  shine.AnchorPoint = Vector2.new(0, 0.5)
+  shine.Position = UDim2.new(0, -40, 0.5, 0)
+  shine.Size = UDim2.new(0, 34, 1, 0)
+  shine.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+  shine.BackgroundTransparency = 0.35
+  shine.BorderSizePixel = 0
+  shine.Parent = barBg
+  local shineGrad = Instance.new("UIGradient", shine)
+  shineGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 255, 255))
+  shineGrad.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.3), NumberSequenceKeypoint.new(1, 1),
+  })
+  task.spawn(function()
+    while splashGui.Parent do
+      shine.Position = UDim2.new(0, -40, 0.5, 0)
+      local tw = TweenService:Create(shine, TweenInfo.new(1.7, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Position = UDim2.new(1, 6, 0.5, 0)})
+      tw:Play() tw.Completed:Wait()
+      if not splashGui.Parent then break end
+      task.wait(0.55)
+    end
+  end)
+  local barFill = Instance.new("Frame")
+  barFill.Name = "BarFill"
+  barFill.Size = UDim2.new(0, 0, 1, 0)
+  barFill.BackgroundColor3 = C.hot
+  barFill.BorderSizePixel = 0
+  barFill.Parent = barBg
+  Instance.new("UICorner", barFill).CornerRadius = UDim.new(1, 0)
+  local fillGrad = Instance.new("UIGradient", barFill)
+  fillGrad.Color = ColorSequence.new(C.hot2, C.hot)
+  fillGrad.Rotation = 0
+
+  -- live percentage beside the bar
+  local pct = Instance.new("TextLabel")
+  pct.Name = "Pct"
+  pct.Position = UDim2.new(0.5, 148, 0, 227)
+  pct.Size = UDim2.fromOffset(46, 14)
+  pct.BackgroundTransparency = 1
+  pct.Font = Enum.Font.Code
+  pct.TextSize = 12
+  pct.TextColor3 = C.dim
+  pct.TextXAlignment = Enum.TextXAlignment.Left
+  pct.Text = "0%"
+  pct.TextTransparency = 1
+  pct.Parent = stage
+
+  local verTag = Instance.new("TextLabel")
+  verTag.Name = "Version"
+  verTag.AnchorPoint = Vector2.new(0.5, 1)
+  verTag.Position = UDim2.new(0.5, 0, 1, -18)
+  verTag.Size = UDim2.fromOffset(320, 14)
+  verTag.BackgroundTransparency = 1
+  verTag.Font = Enum.Font.Gotham
+  verTag.TextSize = 10
+  verTag.TextColor3 = C.dim
+  verTag.Text = "TINYDEX v23.6  •  SMOOTH UI"
+  verTag.TextTransparency = 1
+  verTag.Parent = overlay
+
+  -- theme picker: Midnight / Carbon / Ocean — tap to apply live, choice is
+  -- saved for the next launch. Quiet row under the stage.
+  local chipRow = Instance.new("Frame")
+  chipRow.Name = "ThemePicker"
+  chipRow.AnchorPoint = Vector2.new(0.5, 1)
+  chipRow.Position = UDim2.new(0.5, 0, 1, -46)
+  chipRow.Size = UDim2.fromOffset(340, 18)
+  chipRow.BackgroundTransparency = 1
+  chipRow.Parent = overlay
+  local chipLayout = Instance.new("UIListLayout", chipRow)
+  chipLayout.FillDirection = Enum.FillDirection.Horizontal
+  chipLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+  chipLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+  chipLayout.Padding = UDim.new(0, 20)
+  local chips = {}
+  local function selectTheme(name)
+    ACTIVE_THEME = name
+    saveTheme(name)
+    for nm, chip in pairs(chips) do
+      chip.label.TextColor3 = (nm == name) and THEMES[nm].hot or C.dim
+    end
+    if BOOTUI.applyTheme then pcall(BOOTUI.applyTheme, name) end
+  end
+  BOOTUI.selectTheme = selectTheme
+  for _, name in ipairs(THEME_ORDER) do
+    local chip = Instance.new("TextButton")
+    chip.Name = "Theme_" .. name
+    chip.BackgroundTransparency = 1
+    chip.AutoButtonColor = false
+    chip.Size = UDim2.fromOffset(86, 18)
+    chip.Text = ""
+    chip.Parent = chipRow
+    local dot = Instance.new("Frame")
+    dot.AnchorPoint = Vector2.new(0.5, 0.5)
+    dot.Position = UDim2.new(0, 10, 0.5, 0)
+    dot.Size = UDim2.fromOffset(7, 7)
+    dot.BackgroundColor3 = THEMES[name].hot
+    dot.BackgroundTransparency = 1
+    dot.BorderSizePixel = 0
+    dot.Parent = chip
+    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 22, 0, 0)
+    label.Size = UDim2.new(1, -22, 1, 0)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 11
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextTransparency = 1
+    label.TextColor3 = (name == ACTIVE_THEME) and THEMES[name].hot or C.dim
+    label.Text = name
+    label.Parent = chip
+    chips[name] = { label = label, dot = dot }
+    chip.MouseButton1Click:Connect(function() selectTheme(name) end)
+  end
+  task.delay(0.8, function() -- chips drift in so the splash reads calm
+    if not chipRow.Parent then return end
+    for _, chip in pairs(chips) do
+      TweenService:Create(chip.label, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = 0.1}):Play()
+      TweenService:Create(chip.dot, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
+    end
+  end)
+
+  local function fade(obj, props, dur, delay)
+    local tw = TweenService:Create(obj, TweenInfo.new(dur or 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, false, delay or 0), props)
+    tw:Play()
+    return tw
+  end
+
+  -- tap anywhere to skip the cosmetic layer (the window still animates in)
+  local skipRequested = false
+  overlay.InputBegan:Connect(function(io)
+    if io.UserInputType == Enum.UserInputType.MouseButton1
+      or io.UserInputType == Enum.UserInputType.Touch then
+      skipRequested = true
+    end
+  end)
+  local skipHint = Instance.new("TextLabel")
+  skipHint.Name = "SkipHint"
+  skipHint.AnchorPoint = Vector2.new(1, 1)
+  skipHint.Position = UDim2.new(1, -16, 1, -16)
+  skipHint.Size = UDim2.fromOffset(110, 14)
+  skipHint.BackgroundTransparency = 1
+  skipHint.Font = Enum.Font.Gotham
+  skipHint.TextSize = 10
+  skipHint.TextColor3 = C.dim
+  skipHint.TextTransparency = 1
+  skipHint.TextXAlignment = Enum.TextXAlignment.Right
+  skipHint.Text = "tap to skip"
+  skipHint.Parent = overlay
+
+  -- ambient particle drift around the stage
+  local rng = Random.new()
+  task.spawn(function()
+    while splashGui.Parent do
+      task.wait(0.22)
+      if not splashGui.Parent then break end
+      local p = Instance.new("Frame")
+      p.Size = UDim2.fromOffset(rng:NextInteger(3, 6), rng:NextInteger(3, 6))
+      p.Position = UDim2.new(0.5, rng:NextInteger(-190, 190), 0.47, rng:NextInteger(-160, 210))
+      p.BackgroundColor3 = (rng:NextNumber() < 0.7) and C.hot or C.txt
+      p.BackgroundTransparency = 0.55
+      p.BorderSizePixel = 0
+      p.Parent = overlay
+      Instance.new("UICorner", p).CornerRadius = UDim.new(1, 0)
+      local drift = TweenService:Create(p, TweenInfo.new(rng:NextNumber(2.1, 3.2), Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, p.Position.X.Offset + rng:NextInteger(-50, 50), 0.47, p.Position.Y.Offset - rng:NextInteger(60, 110)),
+        BackgroundTransparency = 1,
+      })
+      drift:Play()
+      drift.Completed:Once(function() p:Destroy() end)
+    end
+  end)
+
+  -- the big glow blob breathes on a slow cycle
+  task.spawn(function()
+    while splashGui.Parent do
+      local t1 = TweenService:Create(glowA, TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.9})
+      t1:Play() t1.Completed:Wait()
+      if not splashGui.Parent then break end
+      local t2 = TweenService:Create(glowA, TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.96})
+      t2:Play() t2.Completed:Wait()
+    end
+  end)
+
+  -- entrance choreography
+  fade(overlay, {BackgroundTransparency = 0}, 0.3)
+  fade(logo, {TextTransparency = 0}, 0.4, 0.12)
+  fade(logoGlow, {Transparency = 0.7}, 0.4, 0.12)
+  TweenService:Create(logoScale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+  fade(sub, {TextTransparency = 0.15}, 0.4, 0.35)
+  TweenService:Create(termScale, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+  fade(termStroke, {Transparency = 0.88}, 0.45, 0.5)
+  for i, d in ipairs(traffic) do
+    fade(d, {BackgroundTransparency = 0}, 0.25, 0.55 + i * 0.07)
+  end
+  fade(termTitle, {TextTransparency = 0.35}, 0.4, 0.6)
+  fade(divider, {BackgroundTransparency = 0.85}, 0.4, 0.6)
+  fade(barBg, {BackgroundTransparency = 0}, 0.3, 0.7)
+  fade(pct, {TextTransparency = 0.5}, 0.3, 0.75)
+  fade(glowA, {BackgroundTransparency = 0.93}, 0.8, 0.2)
+  fade(glowB, {BackgroundTransparency = 0.94}, 0.8, 0.35)
+  fade(verTag, {TextTransparency = 0.35}, 0.4, 0.9)
+  task.delay(1.4, function()
+    if skipHint.Parent then fade(skipHint, {TextTransparency = 0.45}, 0.5) end
+  end)
+
+  -- breathing glow on the logo for as long as the splash is alive
+  task.spawn(function()
+    while splashGui.Parent do
+      local a = TweenService:Create(logoGlow, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.4})
+      a:Play() a.Completed:Wait()
+      if not splashGui.Parent then break end
+      local b = TweenService:Create(logoGlow, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.7})
+      b:Play() b.Completed:Wait()
+    end
+  end)
+
+  -- boot choreography: the console types while the bar fills; when both
+  -- lanes meet, the final line lands and the splash hands over.
+  task.spawn(function()
+    pcall(function()
+      local barDone, logDone = false, false
+      -- lane 1: stepped bar fills (skip-aware)
+      task.spawn(function()
+        local steps = {
+          { 0.18, 0.5 }, { 0.44, 0.7 }, { 0.68, 0.8 }, { 0.86, 0.6 }, { 1.00, 0.5 },
+        }
+        for _, s in ipairs(steps) do
+          local tw = TweenService:Create(barFill, TweenInfo.new(s[2], Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {Size = UDim2.new(s[1], 0, 1, 0)})
+          tw:Play()
+          while tw.PlaybackState == Enum.PlaybackState.Playing and not skipRequested do task.wait(0.03) end
+          if not splashGui.Parent or skipRequested then break end
+        end
+        if skipRequested then barFill.Size = UDim2.new(1, 0, 1, 0) end
+        barDone = true
+      end)
+      -- lane 2: the live percentage rides the bar width
+      task.spawn(function()
+        while splashGui.Parent do
+          pct.Text = math.floor(barFill.Size.X.Scale * 100 + 0.5) .. "%"
+          task.wait(0.05)
+        end
+      end)
+      -- lane 3: typed boot log (lines 1-5; line 6 lands at the meet point)
+      task.spawn(function()
+        for i, e in ipairs(LOG) do
+          if i >= 6 then break end
+          if not skipRequested then
+            local markup = '<font color="' .. hexOf(e[2]) .. '">[' .. e[1] .. ']</font> '
+            local ln = logLines[i]
+            local baseY = 26 + (i - 1) * 15
+            ln.Position = UDim2.new(0, 14, 0, baseY + 6)
+            fade(ln, {TextTransparency = 0.55}, 0.16)
+            TweenService:Create(ln, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 14, 0, baseY)}):Play()
+            caret.Position = UDim2.new(0, 14, 0, baseY + 1)
+            task.wait(0.16)
+            for c = 1, #e[3] do
+              if not splashGui.Parent or skipRequested then break end
+              ln.Text = markup .. string.sub(e[3], 1, c)
+              caret.Position = UDim2.new(0, 14 + (7 + c) * 6, 0, baseY + 1)
+              task.wait(0.014)
+            end
+            fade(ln, {TextTransparency = 0.15}, 0.2)
+            task.wait(0.22)
+          end
+          if not splashGui.Parent then return end
+        end
+        logDone = true
+      end)
+      -- meet point: both lanes finished (or the user tapped to skip)
+      while not (logDone and barDone) and not skipRequested and splashGui.Parent do
+        task.wait(0.04)
+      end
+      if not splashGui.Parent then return end
+      if skipRequested then -- stamp the whole log at once
+        for i, e in ipairs(LOG) do
+          local ln = logLines[i]
+          ln.Text = '<font color="' .. hexOf(e[2]) .. '">[' .. e[1] .. ']</font> ' .. e[3]
+          ln.TextTransparency = 0.15
+          ln.Position = UDim2.new(0, 14, 0, 26 + (i - 1) * 15)
+        end
+      end
+      -- final line: typed with the caret, or stamped instantly on skip
+      local e6 = LOG[6]
+      local markup6 = '<font color="' .. hexOf(e6[2]) .. '">[' .. e6[1] .. ']</font> '
+      local ln6 = logLines[6]
+      if skipRequested then
+        ln6.Text = markup6 .. e6[3]
+        ln6.TextTransparency = 0.15
+        caret.Position = UDim2.new(0, 14 + (7 + #e6[3]) * 6, 0, 101 + 1)
+        caret.Visible = true
+      else
+        ln6.Position = UDim2.new(0, 14, 0, 107)
+        fade(ln6, {TextTransparency = 0.55}, 0.16)
+        TweenService:Create(ln6, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 14, 0, 101)}):Play()
+        caret.Position = UDim2.new(0, 14, 0, 102)
+        caret.Visible = true
+        task.wait(0.16)
+        for c = 1, #e6[3] do
+          if not splashGui.Parent then return end
+          ln6.Text = markup6 .. string.sub(e6[3], 1, c)
+          caret.Position = UDim2.new(0, 14 + (7 + c) * 6, 0, 102)
+          task.wait(0.014)
+        end
+        fade(ln6, {TextTransparency = 0.15}, 0.2)
+      end
+      -- hold the full console until the script reports ready (7s safety cap)
+      while not BOOTUI.done and os.clock() - BOOTUI.t0 < 7 and not skipRequested do
+        task.wait(0.05)
+      end
+      task.wait(skipRequested and 0.55 or 0.45)
+    end)
+    -- dissolve the splash
+    pcall(function()
+      TweenService:Create(stageScale, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 1.06}):Play()
+      fade(overlay, {BackgroundTransparency = 1}, 0.45)
+      fade(logo, {TextTransparency = 1}, 0.3)
+      fade(logoGlow, {Transparency = 1}, 0.3)
+      fade(sub, {TextTransparency = 1}, 0.3)
+      fade(termStroke, {Transparency = 1}, 0.3)
+      fade(termTitle, {TextTransparency = 1}, 0.25)
+      fade(divider, {BackgroundTransparency = 1}, 0.25)
+      for _, d in ipairs(traffic) do fade(d, {BackgroundTransparency = 1}, 0.25) end
+      for _, ln in ipairs(logLines) do fade(ln, {TextTransparency = 1}, 0.25) end
+      fade(caret, {BackgroundTransparency = 1}, 0.2)
+      fade(barBg, {BackgroundTransparency = 1}, 0.3)
+      fade(barFill, {BackgroundTransparency = 1}, 0.3)
+      fade(shine, {BackgroundTransparency = 1}, 0.25)
+      fade(pct, {TextTransparency = 1}, 0.3)
+      fade(verTag, {TextTransparency = 1}, 0.3)
+      fade(skipHint, {TextTransparency = 1}, 0.2)
+      fade(glowA, {BackgroundTransparency = 1}, 0.45)
+      fade(glowB, {BackgroundTransparency = 1}, 0.45)
+      for _, chip in pairs(chips) do
+        fade(chip.label, {TextTransparency = 1}, 0.25)
+        fade(chip.dot, {BackgroundTransparency = 1}, 0.25)
+      end
+    end)
+    task.wait(0.45)
+    splashGui:Destroy()
+    -- reveal the finished window with an entrance animation
+    if BOOTUI.reveal then
+      pcall(BOOTUI.reveal)
+    elseif BOOTUI.win then
+      BOOTUI.revealed = true
+      BOOTUI.win.Visible = true
+      if BOOTUI.pBtn then BOOTUI.pBtn.Visible = true end
+    end
+  end)
+
+  -- watchdog: no matter what happens to the cosmetic layer above, TinyDex
+  -- can never stay hidden forever — plain reveal after 8.5s worst case.
+  task.delay(8.5, function()
+    if splashGui.Parent then splashGui:Destroy() end
+    if BOOTUI.win and not BOOTUI.revealed then
+      BOOTUI.revealed = true
+      BOOTUI.win.Visible = true
+      if BOOTUI.pBtn then BOOTUI.pBtn.Visible = true end
+    end
+  end)
+end
+
 
 local win = Instance.new("Frame")
 win.Name = "PRIMEzTinyDexWindow"
@@ -131,12 +844,13 @@ win.BorderSizePixel = 0
 win.ClipsDescendants = true
 win.Parent = gui
 Instance.new("UICorner", win).CornerRadius = UDim.new(0, 13)
+win.Visible = false -- v23.6-SMOOTH UI: born hidden, revealed by the boot splash
 local outerStroke = Instance.new("UIStroke", win)
 outerStroke.Color = C.line
 outerStroke.Thickness = 1.5
 outerStroke.Transparency = 0.08
 local winGradient = Instance.new("UIGradient", win)
-winGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 17, 36)), ColorSequenceKeypoint.new(0.55, C.bg), ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 13, 27))})
+winGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, tint(C.bg, C.hot, 0.10)), ColorSequenceKeypoint.new(0.55, C.bg), ColorSequenceKeypoint.new(1, tint(C.bg, C.hot, 0.05))})
 winGradient.Rotation = 25
 local winScale = Instance.new("UIScale")
 winScale.Name = "ResponsiveScale"
@@ -150,133 +864,6 @@ end
 updateScale()
 if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale) end
 
--- ═══════════════════════════════════════════════════════════════════════════
--- v23.5 SMOOTH UI — BOOT SPLASH
--- Dark purple boot screen with the TinyDex diamond logo, subtitle, animated
--- loading bar and "Loading de Pulsar…" line. Purely cosmetic; fades out once
--- the client is ready, leaving all v23 functionality untouched.
--- ═══════════════════════════════════════════════════════════════════════════
-local splash = Instance.new("Frame")
-splash.Name = "TinyDexBootSplash"
-splash.Size = UDim2.fromScale(1, 1)
-splash.BackgroundColor3 = Color3.fromRGB(11, 9, 20)
-splash.BorderSizePixel = 0
-splash.ZIndex = 5000
-splash.Parent = gui
-local splashGrad = Instance.new("UIGradient", splash)
-splashGrad.Color = ColorSequence.new({
-  ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 14, 38)),
-  ColorSequenceKeypoint.new(0.5, Color3.fromRGB(10, 8, 18)),
-  ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 12, 34)),
-})
-splashGrad.Rotation = 90
-
-local splashCenter = Instance.new("Frame")
-splashCenter.Name = "SplashCenter"
-splashCenter.Size = UDim2.fromOffset(460, 220)
-splashCenter.AnchorPoint = Vector2.new(0.5, 0.5)
-splashCenter.Position = UDim2.fromScale(0.5, 0.46)
-splashCenter.BackgroundTransparency = 1
-splashCenter.ZIndex = 5001
-splashCenter.Parent = splash
-
-local splashLogo = Instance.new("TextLabel")
-splashLogo.Name = "Logo"
-splashLogo.Size = UDim2.new(1, 0, 0, 60)
-splashLogo.BackgroundTransparency = 1
-splashLogo.Font = Enum.Font.GothamBold
-splashLogo.TextSize = 44
-splashLogo.TextColor3 = Color3.fromRGB(242, 238, 255)
-splashLogo.Text = "◆  TinyDex"
-splashLogo.ZIndex = 5002
-splashLogo.Parent = splashCenter
-local logoGlow = Instance.new("UIStroke", splashLogo)
-logoGlow.Color = C.hot
-logoGlow.Thickness = 0.7
-logoGlow.Transparency = 0.45
-
-local splashSub = Instance.new("TextLabel")
-splashSub.Name = "Subtitle"
-splashSub.Size = UDim2.new(1, 0, 0, 20)
-splashSub.Position = UDim2.fromOffset(0, 60)
-splashSub.BackgroundTransparency = 1
-splashSub.Font = Enum.Font.Gotham
-splashSub.TextSize = 11
-splashSub.TextColor3 = Color3.fromRGB(177, 145, 235)
-splashSub.Text = "PRIMEZ STUDIOS  •  ROBLOX SCRIPT EDITOR"
-splashSub.ZIndex = 5002
-splashSub.Parent = splashCenter
-
-local barBg = Instance.new("Frame")
-barBg.Name = "LoadBarBg"
-barBg.Size = UDim2.new(1, -80, 0, 5)
-barBg.Position = UDim2.fromOffset(40, 100)
-barBg.BackgroundColor3 = Color3.fromRGB(38, 28, 60)
-barBg.BorderSizePixel = 0
-barBg.ZIndex = 5002
-barBg.Parent = splashCenter
-Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
-local barFill = Instance.new("Frame")
-barFill.Name = "LoadBarFill"
-barFill.Size = UDim2.new(0, 0, 1, 0)
-barFill.BackgroundColor3 = C.hot
-barFill.BorderSizePixel = 0
-barFill.ZIndex = 5003
-barFill.Parent = barBg
-Instance.new("UICorner", barFill).CornerRadius = UDim.new(1, 0)
-local fillGrad = Instance.new("UIGradient", barFill)
-fillGrad.Color = ColorSequence.new(Color3.fromRGB(105, 48, 210), Color3.fromRGB(190, 120, 255))
-
-local splashLoad = Instance.new("TextLabel")
-splashLoad.Name = "LoadingLabel"
-splashLoad.Size = UDim2.new(1, 0, 0, 20)
-splashLoad.Position = UDim2.fromOffset(0, 112)
-splashLoad.BackgroundTransparency = 1
-splashLoad.Font = Enum.Font.Gotham
-splashLoad.TextSize = 10
-splashLoad.TextColor3 = Color3.fromRGB(145, 125, 180)
-splashLoad.Text = "Loading de Pulsar…"
-splashLoad.ZIndex = 5002
-splashLoad.Parent = splashCenter
-
-local splashFoot = Instance.new("TextLabel")
-splashFoot.Name = "SplashFooter"
-splashFoot.Size = UDim2.new(1, 0, 0, 16)
-splashFoot.Position = UDim2.fromOffset(0, 170)
-splashFoot.BackgroundTransparency = 1
-splashFoot.Font = Enum.Font.Gotham
-splashFoot.TextSize = 8
-splashFoot.TextColor3 = Color3.fromRGB(95, 80, 125)
-splashFoot.Text = "PRIMEZ STUDIOS  •  SHARED INSPECTION INDEX  •  V23.5 SMOOTHUI"
-splashFoot.ZIndex = 5002
-splashFoot.Parent = splashCenter
-
--- animate the loading bar a little while the client finishes booting
-task.spawn(function()
-  for p = 1, 100 do
-    if not barFill.Parent then break end
-    barFill.Size = UDim2.new(p / 100, 0, 1, 0)
-    task.wait(0.008)
-  end
-end)
-
-local function dismissSplash()
-  if not splash or not splash.Parent then return end
-  barFill.Size = UDim2.new(1, 0, 1, 0)
-  task.wait(0.15)
-  local fadeInfo = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-  for _, obj in ipairs(splash:GetDescendants()) do
-    if obj:IsA("TextLabel") then
-      TweenService:Create(obj, fadeInfo, {TextTransparency = 1}):Play()
-    elseif obj:IsA("Frame") then
-      TweenService:Create(obj, fadeInfo, {BackgroundTransparency = 1}):Play()
-    end
-  end
-  TweenService:Create(splash, fadeInfo, {BackgroundTransparency = 1}):Play()
-  task.wait(0.5)
-  splash:Destroy()
-end
-
 local bar = Instance.new("Frame")
 bar.Name = "TopBar"
 bar.Size = UDim2.new(1,0,0,36)
@@ -284,7 +871,7 @@ bar.BackgroundColor3 = Color3.fromRGB(16, 13, 29)
 bar.BorderSizePixel = 0
 bar.Parent = win
 local barGrad = Instance.new("UIGradient", bar)
-barGrad.Color = ColorSequence.new(Color3.fromRGB(36, 20, 65), Color3.fromRGB(15, 14, 27))
+barGrad.Color = ColorSequence.new(tint(C.bg, C.hot, 0.22), tint(C.bg, C.hot, 0.05))
 barGrad.Rotation = 0
 local barLine = Instance.new("Frame")
 barLine.Size = UDim2.new(1, -24, 0, 1)
@@ -312,7 +899,7 @@ brandSub.Font = Enum.Font.Gotham
 brandSub.TextSize = 9
 brandSub.TextXAlignment = Enum.TextXAlignment.Left
 brandSub.TextColor3 = Color3.fromRGB(177, 145, 235)
-brandSub.Text = "PRIMEZ STUDIOS  •  ROBLOX SCRIPT EDITOR"
+brandSub.Text = "by PRIMEz Studios  •  v23.4"
 brandSub.Parent = bar
 
 -- manual drag on the title bar only
@@ -338,7 +925,7 @@ local function tbtn(text, w, xo, col)
   local b = Instance.new("TextButton")
   b.Size = UDim2.new(0, w, 0, 25)
   b.Position = UDim2.new(1, xo, 0, 5)
-  b.BackgroundColor3 = Color3.fromRGB(39, 27, 65)
+  b.BackgroundColor3 = C.btnBg
   b.BorderSizePixel = 0
   b.Font = Enum.Font.GothamSemibold
   b.TextSize = 10
@@ -349,13 +936,13 @@ local function tbtn(text, w, xo, col)
   local st = Instance.new("UIStroke", b)
   st.Color = C.line
   st.Transparency = 0.25
-  b.MouseEnter:Connect(function() TweenService:Create(b, TweenInfo.new(0.14), {BackgroundColor3 = Color3.fromRGB(72, 43, 112)}):Play() end)
-  b.MouseLeave:Connect(function() TweenService:Create(b, TweenInfo.new(0.18), {BackgroundColor3 = Color3.fromRGB(39, 27, 65)}):Play() end)
+  b.MouseEnter:Connect(function() TweenService:Create(b, TweenInfo.new(0.14), {BackgroundColor3 = C.btnHov}):Play() end)
+  b.MouseLeave:Connect(function() TweenService:Create(b, TweenInfo.new(0.18), {BackgroundColor3 = C.btnBg}):Play() end)
   return b
 end
 local diagBtn = tbtn("HELP", 48, -166, C.dim)
-local pickBtn = tbtn("✦  PICK", 74, -112, C.hot)
-local copyShown = tbtn("▣  COPY SHOWN", 116, -236)
+local pickBtn = tbtn("PICK", 74, -112, C.hot)
+local copyShown = tbtn("COPY SHOWN", 116, -236)
 local xb = Instance.new("TextButton")
 xb.Size = UDim2.new(0, 30, 0, 28)
 xb.Position = UDim2.new(1, -36, 0, 4)
@@ -369,6 +956,175 @@ xb.Text = "x"
 xb.Parent = bar
 Instance.new("UICorner", xb).CornerRadius = UDim.new(0, 7)
 xb.MouseButton1Click:Connect(function() gui:Destroy() end)
+
+-- v23.2: floating PRIMEz toggle button, pinned bottom-left. Tap to hide the
+-- TinyDex window, tap again to show it. PULSAR, the agent loop, tools and
+-- the terminal keep running while the window is hidden. The X button is
+-- still the only way to remove TinyDex completely (it takes the P button
+-- with it).
+-- v23.3: the P button is also DRAGGABLE — press and slide it anywhere on
+-- screen (any side, any corner) so it never has to sit on top of the game's
+-- mobile controls. Drag = move, quick tap = toggle.
+local pBtn = Instance.new("TextButton")
+pBtn.Name = "PRIMEzToggle"
+pBtn.Size = UDim2.new(0, 40, 0, 40)
+pBtn.AnchorPoint = Vector2.new(0, 0)
+pBtn.Position = UDim2.new(0, 10, 1, -52)
+pBtn.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
+pBtn.BorderSizePixel = 0
+pBtn.Font = Enum.Font.GothamBold
+pBtn.TextSize = 21
+pBtn.Text = "P"
+pBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+pBtn.AutoButtonColor = false
+pBtn.Parent = gui
+Instance.new("UICorner", pBtn).CornerRadius = UDim.new(1, 0)
+local pStroke = Instance.new("UIStroke", pBtn)
+pStroke.Color = C.hot
+pStroke.Thickness = 1.5
+pStroke.Transparency = 0.12
+
+-- v23.6-SMOOTH UI: register the finished window with the boot splash and
+-- arm its entrance animation (elastic scale-in + stroke glow fade-in, and a
+-- pop-in for the P button). The show/hide toggle below is untouched.
+pBtn.Visible = false
+BOOTUI.win = win
+BOOTUI.pBtn = pBtn
+BOOTUI.reveal = function()
+  if BOOTUI.revealed then return end
+  BOOTUI.revealed = true
+  win.Visible = true
+  local finalScale = winScale.Scale
+  winScale.Scale = finalScale * 0.7
+  TweenService:Create(winScale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = finalScale}):Play()
+  outerStroke.Transparency = 1
+  TweenService:Create(outerStroke, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Transparency = 0.08}):Play()
+  local pScale = Instance.new("UIScale")
+  pScale.Parent = pBtn
+  pScale.Scale = 0
+  task.delay(0.18, function()
+    pBtn.Visible = true
+    TweenService:Create(pScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+  end)
+end
+
+-- v23.6-SMOOTH UI: live theme re-tint. Walks the finished interface and
+-- swaps every colour that comes from the C palette (plus the derived window
+-- gradient tints), so switching themes needs no reload. C is updated in
+-- place, so anything created afterwards matches too. Colours are matched by
+-- RGB value, not object identity, so shared palette values resolve correctly.
+local function rgbkey(c)
+  return string.format("%d,%d,%d", math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5))
+end
+BOOTUI.applyTheme = function(name)
+  local th = THEMES[name]
+  if not th then return end
+  local map = {}
+  for k, v in pairs(C) do map[rgbkey(v)] = th[k] end
+  for _, f in ipairs({ 0.10, 0.05, 0.22 }) do
+    map[rgbkey(tint(C.bg, C.hot, f))] = tint(th.bg, th.hot, f)
+  end
+  local function swap(c) return map[rgbkey(c)] end
+  local function walk(o)
+    for _, d in ipairs(o:GetChildren()) do
+      pcall(function()
+        if d:IsA("GuiObject") then
+          local s = swap(d.BackgroundColor3)
+          if s then d.BackgroundColor3 = s end
+        end
+        if d:IsA("TextLabel") or d:IsA("TextButton") then
+          local s = swap(d.TextColor3)
+          if s then d.TextColor3 = s end
+        end
+        if d:IsA("UIStroke") then
+          local s = swap(d.Color)
+          if s then d.Color = s end
+        end
+        if d:IsA("UIGradient") then
+          local kps, changed = {}, false
+          for _, kp in ipairs(d.Color.Keypoints) do
+            local s = swap(kp.Value)
+            if s then changed = true end
+            kps[#kps + 1] = ColorSequenceKeypoint.new(kp.Time, s or kp.Value)
+          end
+          if changed then d.Color = ColorSequence.new(kps) end
+        end
+      end)
+      walk(d)
+    end
+  end
+  walk(gui)
+  for k, v in pairs(th) do C[k] = v end
+end
+
+-- v23.3: drag the P button anywhere on screen; a quick tap toggles the
+-- window. The button is live-clamped so it always stays fully visible.
+local pDragging, pDragStart, pBtnStart, pMoved = false, nil, nil, false
+pBtn.InputBegan:Connect(function(i)
+  if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+    pDragging, pMoved = true, false
+    pDragStart, pBtnStart = i.Position, pBtn.Position
+  end
+end)
+UIS.InputChanged:Connect(function(i)
+  if pDragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+    local d = i.Position - pDragStart
+    if not pMoved and (math.abs(d.X) > 8 or math.abs(d.Y) > 8) then pMoved = true end
+    if pMoved then
+      pBtn.Position = UDim2.new(pBtnStart.X.Scale, pBtnStart.X.Offset + d.X, pBtnStart.Y.Scale, pBtnStart.Y.Offset + d.Y)
+      -- live clamp: keep the button fully on screen while dragging
+      local cam = workspace.CurrentCamera
+      local vp = cam and cam.ViewportSize or Vector2.new(1920, 1080)
+      local pos, size = pBtn.AbsolutePosition, pBtn.AbsoluteSize
+      local nx = math.clamp(pos.X, 2, math.max(2, vp.X - size.X - 2))
+      local ny = math.clamp(pos.Y, 2, math.max(2, vp.Y - size.Y - 2))
+      if nx ~= pos.X or ny ~= pos.Y then
+        pBtn.Position = UDim2.new(0, nx, 0, ny)
+        pBtnStart, pDragStart = pBtn.Position, i.Position
+      end
+    end
+  end
+end)
+-- v23.3.2 FIX: InputEnded on a small button is unreliable on mobile — if the
+-- finger lifts slightly off the button it never fires, so P looked dead and
+-- pDragging stayed stuck (the button then followed the next touch). Taps
+-- now use the Activated event (fires reliably on release over the button,
+-- never fires on a drag-away), and a GLOBAL InputEnded clears drag state and
+-- suppresses the tap for 0.35s after any drag so a drag that ends on the
+-- button can't accidentally toggle the window.
+local pSuppressTapUntil = 0
+UIS.InputEnded:Connect(function(i)
+  if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+    if pDragging then
+      pDragging = false
+      if pMoved then
+        pMoved = false
+        pSuppressTapUntil = time() + 0.35
+      end
+    end
+  end
+end)
+pBtn.Activated:Connect(function()
+  if time() < pSuppressTapUntil then return end
+  win.Visible = not win.Visible
+  if win.Visible then
+    -- v23.3.1 FIX: the old snap code read the window position before the
+    -- layout refreshed and wrote offsets that ignored the window's center
+    -- anchor — every show drifted the window until it landed in a corner
+    -- where its title bar (the only drag handle) was unreachable. Now:
+    -- wait one frame for fresh layout, and re-center the window ONLY if
+    -- any part of it is off-screen. On-screen positions are untouched.
+    task.wait()
+    local cam = workspace.CurrentCamera
+    local vp = cam and cam.ViewportSize or Vector2.new(1920, 1080)
+    local pos, size = win.AbsolutePosition, win.AbsoluteSize
+    local offScreen = pos.X < -12 or pos.Y < -12
+      or (pos.X + size.X) > (vp.X + 12) or (pos.Y + size.Y) > (vp.Y + 12)
+    if offScreen then
+      win.Position = UDim2.fromScale(0.5, 0.5)
+    end
+  end
+end)
 
 local readout = Instance.new("TextLabel")
 readout.Size = UDim2.new(1, -26, 0, 14)
@@ -401,7 +1157,7 @@ footer.Font = Enum.Font.Gotham
 footer.TextSize = 9
 footer.TextXAlignment = Enum.TextXAlignment.Right
 footer.TextColor3 = Color3.fromRGB(133, 112, 170)
-footer.Text = "PRIMEz Studios   •   Shared Inspection Index   •   v23.5 SmoothUI"
+footer.Text = "PRIMEz Studios   •   Shared Inspection Index   •   v22.0 (No Limits)"
 footer.Parent = win
 local function flash(t, c)
   status.Text = tostring(t)
@@ -1273,7 +2029,7 @@ local function hover(t)
 end
 local function stopPick()
   pickOn = false
-  pickBtn.BackgroundColor3 = Color3.fromRGB(39, 27, 65)
+  pickBtn.BackgroundColor3 = C.btnBg
   if pickCon then pickCon:Disconnect(); pickCon = nil end
   if pickInputCon then pickInputCon:Disconnect(); pickInputCon = nil end
   setCollapsed(false)
@@ -2027,7 +2783,7 @@ pzTitle.Font = Enum.Font.GothamBold
 pzTitle.TextSize = 16
 pzTitle.TextXAlignment = Enum.TextXAlignment.Left
 pzTitle.TextColor3 = Color3.fromRGB(176,130,255)
-pzTitle.Text = "✦  PULSAR AGENT  ·  PRIMEz Full Scripts Client (v23)"
+pzTitle.Text = "PULSAR AGENT  ·  PRIMEz Full Scripts Client (v23.6)"
 pzTitle.Parent = pz
 
 local pzStatus = Instance.new("TextLabel")
@@ -2041,75 +2797,10 @@ pzStatus.TextColor3 = C.dim
 pzStatus.Text = "Connecting to PRIMEz Cloud..."
 pzStatus.Parent = pz
 
--- ── Model selector ──────────────────────────────────────────────────────
--- The real list of available models is supplied by the PRIMEz backend.
--- Until that endpoint is wired, this button cycles a placeholder list so
--- the option is already in the UI and SELECTED_MODEL can be sent upstream.
-local MODEL_OPTIONS = { { id = nil, label = "AUTO (backend)" } }
-local selectedModelIndex = 1
-local SELECTED_MODEL = MODEL_OPTIONS[1].label
-local SELECTED_MODEL_ID = nil
-local modelBtn = Instance.new("TextButton")
-modelBtn.Name = "ModelSelector"
-modelBtn.Size = UDim2.new(0, 190, 0, 18)
-modelBtn.Position = UDim2.fromOffset(0, 41)
-modelBtn.BackgroundColor3 = Color3.fromRGB(45, 30, 72)
-modelBtn.BorderSizePixel = 0
-modelBtn.Font = Enum.Font.GothamSemibold
-modelBtn.TextSize = 9
-modelBtn.TextXAlignment = Enum.TextXAlignment.Left
-modelBtn.TextColor3 = C.txt
-modelBtn.Parent = pz
-Instance.new("UICorner", modelBtn).CornerRadius = UDim.new(0, 5)
-local function refreshModelBtn()
-  local opt = MODEL_OPTIONS[selectedModelIndex] or MODEL_OPTIONS[1]
-  SELECTED_MODEL = opt.label
-  SELECTED_MODEL_ID = opt.id
-  modelBtn.Text = "◈ MODEL: " .. SELECTED_MODEL
-end
-refreshModelBtn()
-modelBtn.MouseButton1Click:Connect(function()
-  selectedModelIndex = (selectedModelIndex % #MODEL_OPTIONS) + 1
-  refreshModelBtn()
-  flash("model set to " .. SELECTED_MODEL, C.dim)
-end)
-task.spawn(function()
-  local ok, raw = pcall(pulsarRequest, "GET", PRIMEZ .. "api/ai/models")
-  if ok and type(raw) == "string" then
-    local decOk, data = pcall(function() return HttpService:JSONDecode(raw) end)
-    if decOk and type(data) == "table" and type(data.models) == "table" and #data.models > 0 then
-      local nextOpts = { { id = nil, label = "AUTO (backend)" } }
-      for _, m in ipairs(data.models) do
-        if type(m) == "table" and m.id then
-          table.insert(nextOpts, { id = tostring(m.id), label = tostring(m.name or m.id) })
-        end
-      end
-      MODEL_OPTIONS = nextOpts
-      selectedModelIndex = 1
-      refreshModelBtn()
-      pcall(function()
-        if modelNote then
-          modelNote.Text = ("loaded %d models from PRIMEz — click to cycle"):format(#MODEL_OPTIONS - 1)
-        end
-      end)
-    end
-  end
-end)
-local modelNote = Instance.new("TextLabel")
-modelNote.Size = UDim2.new(1, -200, 0, 18)
-modelNote.Position = UDim2.fromOffset(196, 41)
-modelNote.BackgroundTransparency = 1
-modelNote.Font = Enum.Font.Code
-modelNote.TextSize = 9
-modelNote.TextXAlignment = Enum.TextXAlignment.Left
-modelNote.TextColor3 = C.dim
-modelNote.Text = "model list is supplied by the PRIMEz backend — click to choose"
-modelNote.Parent = pz
-
 local chatFeed = Instance.new("ScrollingFrame")
 chatFeed.Name = "PulsarConversation"
-chatFeed.Size = UDim2.new(1, -4, 1, -139)
-chatFeed.Position = UDim2.fromOffset(0, 62)
+chatFeed.Size = UDim2.new(1, -4, 1, -120)
+chatFeed.Position = UDim2.fromOffset(0, 43)
 chatFeed.BackgroundColor3 = C.row
 chatFeed.BorderSizePixel = 0
 chatFeed.ScrollBarThickness = 3
@@ -2171,7 +2862,7 @@ sendBtn.TextColor3 = Color3.new(1,1,1)
 sendBtn.Parent = composer
 Instance.new("UICorner", sendBtn).CornerRadius = UDim.new(0, 8)
 local sendStroke = Instance.new("UIStroke", sendBtn)
-sendStroke.Color = Color3.fromRGB(191, 142, 255)
+sendStroke.Color = tint(C.hot, Color3.new(1, 1, 1), 0.3)
 sendStroke.Transparency = 0.45
 sendBtn.MouseEnter:Connect(function() TweenService:Create(sendBtn, TweenInfo.new(0.14), {BackgroundColor3 = C.hot}):Play() end)
 sendBtn.MouseLeave:Connect(function() TweenService:Create(sendBtn, TweenInfo.new(0.18), {BackgroundColor3 = C.hot2}):Play() end)
@@ -2206,7 +2897,7 @@ autoRunBtn.BackgroundColor3 = Color3.fromRGB(48, 29, 79)
 autoRunBtn.BorderSizePixel = 0
 autoRunBtn.Font = Enum.Font.GothamSemibold
 autoRunBtn.TextSize = 9
-autoRunBtn.Text = "⚡ AUTO-RUN: ON"
+autoRunBtn.Text = "AUTO-RUN ON"
 autoRunBtn.TextColor3 = C.txt
 autoRunBtn.Parent = utilityRow
 Instance.new("UICorner", autoRunBtn).CornerRadius = UDim.new(0, 5)
@@ -2218,7 +2909,7 @@ execBtn.BackgroundColor3 = Color3.fromRGB(48, 29, 79)
 execBtn.BorderSizePixel = 0
 execBtn.Font = Enum.Font.GothamSemibold
 execBtn.TextSize = 9
-execBtn.Text = "▶ EXEC: ON"
+execBtn.Text = "EXEC ON"
 execBtn.TextColor3 = C.txt
 execBtn.Parent = utilityRow
 Instance.new("UICorner", execBtn).CornerRadius = UDim.new(0, 5)
@@ -2261,6 +2952,10 @@ local function pulsarRequest(method, url, body)
   local req = request or http_request
   if not req and syn and type(syn.request) == "function" then req = syn.request end
   if type(req) ~= "function" then
+    if method == "GET" then
+      local okGet, rawGet = pcall(function() return game:HttpGet(url) end)
+      if okGet and type(rawGet) == "string" and #rawGet > 0 then return rawGet end
+    end
     error("Executor HTTP is unavailable in this runtime.")
   end
   local options = {
@@ -2268,7 +2963,10 @@ local function pulsarRequest(method, url, body)
     Method = method,
     Headers = { ["Content-Type"] = "application/json", ["Accept"] = "application/json" },
   }
-  pcall(function() options.TimeOut = 45 end)
+  -- v23.4.1: 45 → 90 seconds. Render free-tier cold starts (~30-50s) plus a
+  -- slow model request regularly exceeded 45s and the turn died with
+  -- "Request failed" mid-task.
+  pcall(function() options.TimeOut = 90 end)
   if body ~= nil then options.Body = HttpService:JSONEncode(body) end
   local response = req(options)
   if type(response) ~= "table" then error("Unexpected HTTP response.") end
@@ -2442,6 +3140,124 @@ AGENT_TOOLS.analyze_game = {
   },
   run = function(args)
     return toolResult(true, buildGameAnalysis(args and args.scope))
+  end,
+}
+
+-- ── v23.4: game identification + live web research ──────────────────────
+local cachedGameInfo = nil
+local function getGameInfo()
+  if cachedGameInfo then return cachedGameInfo end
+  local gameName = game.Name
+  local creator = "?"
+  local okP, info = pcall(function()
+    return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+  end)
+  if okP and type(info) == "table" then
+    if type(info.Name) == "string" and info.Name ~= "" then gameName = info.Name end
+    if type(info.Creator) == "table" then
+      creator = tostring(info.Creator.Name or info.Creator.Id or "?")
+    elseif info.Creator then
+      creator = tostring(info.Creator)
+    end
+  end
+  cachedGameInfo = { name = gameName, creator = creator, placeId = game.PlaceId }
+  return cachedGameInfo
+end
+
+local function urlEncode(s)
+  s = tostring(s or "")
+  return (s:gsub("[^%w%-_%.%~]", function(c)
+    return string.format("%%%02X", string.byte(c))
+  end))
+end
+
+local function urlDecode(s)
+  s = tostring(s or ""):gsub("+", " ")
+  return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end))
+end
+
+local function stripHtmlTags(s)
+  s = tostring(s or "")
+  s = s:gsub("<[^>]->", "")
+  s = s:gsub("&amp;", "&"):gsub("&quot;", '"'):gsub("&#x27;", "'")
+  s = s:gsub("&#39;", "'"):gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&nbsp;", " ")
+  return s
+end
+
+AGENT_TOOLS.get_game_info = {
+  description = "Identify the current game: real game name, place id, creator. The game name is also in the context. Call this when unsure which game you are in.",
+  parameters = {
+    type = "object",
+    properties = {},
+  },
+  run = function()
+    local g = getGameInfo()
+    return toolResult(true, ("GAME: %s\nPLACE ID: %d\nJOB ID: %s\nCREATOR: %s"):format(
+      g.name, g.placeId, tostring(game.JobId), g.creator))
+  end,
+}
+
+AGENT_TOOLS.web_search = {
+  description = "Search the internet (DuckDuckGo) for current information: this game's known scripts and features, recent updates, how a feature works. USE THIS FIRST for game-specific script requests — research what features exist for THIS game (e.g. '<game name> auto steal script roblox') before building.",
+  parameters = {
+    type = "object",
+    properties = {
+      query = { type = "string", description = "search keywords, e.g. 'Steal a Brainrot auto steal script roblox'" },
+      count = { type = "number", description = "max results (default 6, max 10)" },
+    },
+    required = { "query" },
+  },
+  run = function(args)
+    local query = tostring(args and args.query or "")
+    if query:match("^%s*$") then return toolResult(false, "query is empty") end
+    local maxResults = math.clamp(tonumber(args and args.count) or 6, 1, 10)
+    local req = request or http_request
+    if not req and syn and type(syn.request) == "function" then req = syn.request end
+    if type(req) ~= "function" then
+      return toolResult(false, "Executor HTTP unavailable — web_search needs an executor runtime.")
+    end
+    local function fetch(url)
+      local body = ""
+      local ok = pcall(function()
+        local resp = req({
+          Url = url,
+          Method = "GET",
+          Headers = {
+            ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            ["Accept"] = "text/html",
+          },
+        })
+        local code = tonumber(resp.StatusCode or resp.Status or 0) or 0
+        if code < 200 or code >= 300 then error("HTTP " .. tostring(code)) end
+        body = tostring(resp.Body or resp.body or "")
+      end)
+      return ok and body or ""
+    end
+    -- DuckDuckGo lite first (simple HTML), then the html endpoint as fallback.
+    local html = fetch("https://lite.duckduckgo.com/lite/?q=" .. urlEncode(query))
+    if html == "" then html = fetch("https://html.duckduckgo.com/html/?q=" .. urlEncode(query)) end
+    if html == "" then
+      return toolResult(false, "search request failed (blocked, offline, or no usable response)")
+    end
+    local results = {}
+    for href, title in html:gmatch('<a[^>]-href="([^"]-uddg=[^"]-)"[^>]->(.-)</a>') do
+      local link = href:match('uddg=([^&"]+)')
+      results[#results + 1] = { title = stripHtmlTags(title), url = link and urlDecode(link) or "" }
+    end
+    local snippets = {}
+    for snip in html:gmatch('class="result__snippet"[^>]->(.-)</a>') do snippets[#snippets + 1] = stripHtmlTags(snip) end
+    for snip in html:gmatch('class="result%-snippet"[^>]->(.-)</[at][td]>') do snippets[#snippets + 1] = stripHtmlTags(snip) end
+    if #results == 0 then
+      return toolResult(false, "no results parsed (search page layout may have changed) — proceed with analyze_game + your own knowledge instead")
+    end
+    local out = { ("WEB SEARCH '%s' — top results:"):format(query) }
+    for i = 1, math.min(maxResults, #results) do
+      local r = results[i]
+      local snip = (snippets[i] and snippets[i] ~= "") and snippets[i] or "(no snippet)"
+      if #snip > 300 then snip = snip:sub(1, 300) .. "…" end
+      out[#out + 1] = ("%d. %s\n   %s\n   %s"):format(i, r.title ~= "" and r.title or "(untitled)", snip, r.url)
+    end
+    return toolResult(true, table.concat(out, "\n"))
   end,
 }
 
@@ -2762,7 +3578,12 @@ table.sort(TOOL_SCHEMAS, function(a, b) return a.name < b.name end)
 local function dispatchTool(name, args)
   local def = AGENT_TOOLS[name]
   if not def then
-    return { ok = false, output = ("unknown tool '%s'"):format(tostring(name)) }
+    -- v23.4.1: weak models sometimes invent tool names (e.g. pul_search_info).
+    -- Tell them exactly which tools are real so the next step corrects itself.
+    local names = {}
+    for realName in pairs(AGENT_TOOLS) do names[#names + 1] = realName end
+    table.sort(names)
+    return { ok = false, output = ("unknown tool '%s'. These are the ONLY real tools: %s. Re-issue the task using one of these."):format(tostring(name), table.concat(names, ", ")) }
   end
   if type(args) == "string" then
     local okDecode, decoded = pcall(function() return HttpService:JSONDecode(args) end)
@@ -2782,7 +3603,11 @@ end
 local conversation = {}
 local includeSelection = true
 local busy = false
-local MAX_STEPS = 8
+-- v23.4: 8 → 24. The user wants the agent to keep going until the task is
+-- actually DONE (research → analyze → build → execute → verify), not stop
+-- mid-task. The v23.1 protections still apply (clipped history, capped
+-- index, capped scans), so long turns can't drag huge payloads anymore.
+local MAX_STEPS = 24
 
 local function scrollFeed()
   task.defer(function()
@@ -2904,7 +3729,7 @@ local function addScriptCard(title, code)
   runBtn.BorderSizePixel = 0
   runBtn.Font = Enum.Font.GothamBold
   runBtn.TextSize = 9
-  runBtn.Text = "▶ RUN"
+  runBtn.Text = "RUN"
   runBtn.TextColor3 = Color3.new(1, 1, 1)
   runBtn.Parent = header
   Instance.new("UICorner", runBtn).CornerRadius = UDim.new(0, 5)
@@ -2915,7 +3740,7 @@ local function addScriptCard(title, code)
   copyBtn.BorderSizePixel = 0
   copyBtn.Font = Enum.Font.GothamBold
   copyBtn.TextSize = 9
-  copyBtn.Text = "⧉ COPY"
+  copyBtn.Text = "COPY"
   copyBtn.TextColor3 = C.txt
   copyBtn.Parent = header
   Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 5)
@@ -3031,7 +3856,7 @@ end
 -- ── System context (agentic product knowledge) ─────────────────────────
 local PULSAR_SYSTEM = [[
 IDENTITY
-You are PULSAR AGENT, the built-in AI agent of PRIMEz Studios TinyDex v23 (Full Scripts Client). You are not a chatbot: you have REAL tools that act on the live client, and the user expects finished, working, EXECUTED scripts — not instructions.
+You are PULSAR AGENT, the built-in AI SCRIPT BUILDER of PRIMEz Studios TinyDex v23 (Full Scripts Client). You are not a chatbot and not a tutor: you are a script BUILDER, judged ONLY by whether the scripts you deliver actually RUN in the live game. Analysis and research are only means to that end — the finished product is a working, EXECUTED script.
 
 OFFICIAL PRIMEz REFERENCE
 PRIMEz Studios: https://primez-guard.vercel.app/
@@ -3043,6 +3868,8 @@ YOUR TOOLS (real, executed by the TinyDex client)
 - run_luau(code, label?): EXECUTES Luau in the TinyDex terminal and returns real output/errors. PRIMARY ACTION TOOL.
 - save_draft(code): places code in the WORKSPACE draft editor for the user to review/run later.
 - set_property(path, property, value), create_instance(class, name?, parentPath, properties?), destroy_instance(path)
+- get_game_info(): real game name, place id, creator — identifies the game you are in.
+- web_search(query, count?): searches the internet (DuckDuckGo) for current info about this game's scripts, features and updates.
 - get_logs(count?): recent client logs — use it after run_luau to verify behavior.
 
 AGENT WORKFLOW (follow strictly)
@@ -3052,6 +3879,28 @@ AGENT WORKFLOW (follow strictly)
 4. EXECUTE it with run_luau. AUTO-RUN is enabled by default: the user wants scripts executed automatically in the terminal. Always run what you build unless the user explicitly asked to only review code (then use save_draft).
 5. VERIFY: read the run_luau output and get_logs. If execution failed, FIX the code and run again — up to 3 fix attempts per script.
 6. REPORT: finish with a short summary — what you analyzed, what you built, whether it ran, output highlights, and how to stop or tweak it (e.g. a toggle the script exposes).
+
+GAME SCRIPT WORKFLOW (when the user asks for a script for THIS game)
+1. IDENTIFY the game: the CURRENT GAME name is already in the context — do NOT call get_game_info for this, it is free information.
+2. RESEARCH (OPTIONAL, at most ONE web_search): a single "<game name> script features" search is enough. If it fails or looks slow, SKIP research entirely.
+3. ANALYZE the live game with analyze_game scope='summary' (go deep ONLY if the summary is clearly insufficient to build the script).
+4. BUILD and EXECUTE immediately after the analysis.
+SCRIPT TYPES users ask for: auto-steal (steal-style games), autofarm / auto-collect, auto-buy / shop, movement (speed, fly, infinite jump), teleport, ESP / visuals (players, items, bases), anti-AFK, GUI hub menus, remote tools, lag tools, and game-specific mixes. Pick the feature set that matches the request.
+
+SPEED RULES (the user's #1 requirement — a delivered script in under 5 minutes)
+- Every step is a model round trip and costs real time. FINISH IN 8 STEPS OR FEWER whenever possible.
+- LEAN PATH: (game name is free in context) → at most 1 web_search → 1 summary analyze → build → run_luau once → fix max 2 times → short report.
+- Do NOT narrate, restate plans, or summarize progress between steps. Tool calls only while working.
+- Do NOT verify with extra steps unless run_luau errored. A delivered working script beats a fully researched one — when in doubt, BUILD.
+- NEVER announce a script without delivering it: if you write "here is the script", the COMPLETE ```lua code MUST be in that SAME reply. Once you give your final answer the turn ENDS — you cannot add anything after it, so finish the whole task first.
+
+WORKING SCRIPT STANDARD (how you are judged)
+- You are judged ONLY by whether the delivered script RUNS. Not by research quality, not by explanation length.
+- A script "works" ONLY after run_luau returns EXEC OK. Before that it is UNVERIFIED — never call it working.
+- If run_luau fails, FIX the code and run again — up to 3 attempts. Only give up after 3 real failures, and then say exactly what error you could not fix.
+- Your FINAL reply must state: SCRIPT RUNNING ✓ or ✗, and how to toggle/stop the script (e.g. a keybind or button it creates).
+- NO RANDOM OUTPUT: when a script was requested, do NOT reply with tutorials, "here are some ideas", safety lectures, general game info, or multi-topic answers. Either build and deliver the script, or state precisely what evidence you still need to build it.
+- Stay ON-TARGET: if the user asked for auto-steal, deliver auto-steal. Do not add unrelated features the user never asked for.
 
 SCRIPT RULES
 - Complete runnable Luau; correct service usage (game:GetService); wrap risky operations in pcall.
@@ -3065,7 +3914,7 @@ RESPONSE FORMAT
 - TOOL LINE FALLBACK (use this when the tool_calls mechanism is not active on this connection): request tools by emitting plain lines, one per line, as your ENTIRE reply — the TinyDex client executes them locally and returns TOOL_RESULT blocks:
 TOOL_CALL {"id":"c1","tool":"analyze_game","args":{"scope":"summary"}}
 TOOL_CALL {"id":"c2","tool":"run_luau","args":{"code":"print('hi')"}}
-Tool names: analyze_game, inspect, list_children, search_game, read_property, get_selection, get_logs, run_luau, save_draft, set_property, create_instance, destroy_instance. While tool results are pending, emit nothing except TOOL_CALL lines. After TOOL_RESULT blocks arrive, continue with more TOOL_CALL lines or give the final answer as plain text with NO TOOL_CALL lines.
+Tool names: analyze_game, inspect, list_children, search_game, read_property, get_selection, get_logs, get_game_info, web_search, run_luau, save_draft, set_property, create_instance, destroy_instance. While tool results are pending, emit nothing except TOOL_CALL lines. After TOOL_RESULT blocks arrive, continue with more TOOL_CALL lines or give the final answer as plain text with NO TOOL_CALL lines.
 - Final answer: plain text with ```lua fenced blocks for any script code (they render as RUN/COPY cards). Keep it concise and practical.
 - Never mention model vendors, provider names, routing vendors, or infrastructure labels.
 - Never fabricate tool results or capabilities. If a tool fails, say what failed and adapt.
@@ -3075,6 +3924,7 @@ local function buildContext(userPrompt)
   local parts = {
     "CURRENT PRODUCT: PRIMEz Studios TinyDex v23 (Full Scripts Client, agent mode)",
     "OFFICIAL SITE: https://primez-guard.vercel.app/",
+    ("CURRENT GAME: %s (PlaceId %d) — use this game name when researching or building game scripts"):format(getGameInfo().name, game.PlaceId),
     "AGENT SYSTEM PROMPT:",
     PULSAR_SYSTEM,
     "",
@@ -3144,7 +3994,8 @@ local function refreshPulsarStatus()
 end
 
 local function trimConversation()
-  while #conversation > 40 do table.remove(conversation, 1) end
+  -- v23.4.2: 40 → 28 messages — smaller payloads get faster model responses.
+  while #conversation > 28 do table.remove(conversation, 1) end
 end
 
 -- PERF: tool outputs can be huge (deep analyze_game / long terminal logs).
@@ -3159,21 +4010,55 @@ local function clipForHistory(text)
 end
 
 -- ── The agent loop ──────────────────────────────────────────────────────
+-- v23.4.3: live heartbeat. The status line only refreshed BETWEEN steps, so
+-- during a long model request (up to 90s x 3 attempts) it froze at
+-- "STEP 1/24 - 0:00" and PULSAR looked dead while still working. This loop
+-- refreshes the status every second while a turn is active.
+local agentRuntime = { active = false, step = 0, stepT0 = 0, turnT0 = 0, tools = 0, note = "working…" }
+task.spawn(function()
+  while true do
+    if agentRuntime.active then
+      local el = os.clock() - agentRuntime.stepT0
+      pzStatus.Text = ("● STEP %d/%d · this step %d:%02d · tools: %d · %s"):format(
+        agentRuntime.step, MAX_STEPS, math.floor(el / 60), math.floor(el % 60), agentRuntime.tools, agentRuntime.note)
+      pzStatus.TextColor3 = C.dim
+    end
+    task.wait(1)
+  end
+end)
+
 local function runAgentTurn(userPrompt)
   local toolUses = 0
   for step = 1, MAX_STEPS do
-    pzStatus.Text = ("● AGENT STEP %d/%d · tools used: %d · working..."):format(step, MAX_STEPS, toolUses)
-    local ok, raw = pcall(pulsarRequest, "POST", PRIMEZ .. "api/ai/chat", {
-      agent = true,
-      step = step,
-      model = SELECTED_MODEL_ID,
-      tools = TOOL_SCHEMAS,
-      context = buildContext(userPrompt),
-      messages = conversation,
-    })
+    agentRuntime.active = true
+    agentRuntime.step = step
+    agentRuntime.stepT0 = os.clock()
+    if step == 1 then agentRuntime.turnT0 = agentRuntime.stepT0 end
+    agentRuntime.tools = toolUses
+    agentRuntime.note = "working…"
+    -- v23.4.1: retry failed requests. The free-tier provider fails
+    -- intermittently (rate limits / generic "Something went wrong" errors)
+    -- and the Render server cold-starts after idle — one bad request used
+    -- to kill the whole turn. Now: 3 attempts with waits between them.
+    local ok, raw = false, nil
+    for attempt = 1, 3 do
+      if attempt > 1 then
+        agentRuntime.note = ("retrying after request error (attempt %d/3)…"):format(attempt)
+        task.wait(attempt == 2 and 3 or 6)
+      end
+      ok, raw = pcall(pulsarRequest, "POST", PRIMEZ .. "api/ai/chat", {
+        agent = true,
+        step = step,
+        tools = TOOL_SCHEMAS,
+        context = buildContext(userPrompt),
+        messages = conversation,
+      })
+      if ok then break end
+    end
     if not ok then
-      addChatMessage("CONNECTION ERROR", tostring(raw), true)
-      pzStatus.Text = "● Request failed"
+      addChatMessage("CONNECTION ERROR", tostring(raw) .. "\n\n3 attempts failed. If the PRIMEz server was idle (free-tier cold start), wait ~1 minute, then say 'continue' — I'll resume exactly where I stopped.", true)
+      agentRuntime.active = false
+      pzStatus.Text = "● Request failed (3 attempts)"
       pzStatus.TextColor3 = C.bad
       return false
     end
@@ -3281,20 +4166,69 @@ local function runAgentTurn(userPrompt)
         conversation[#conversation + 1] = { role = "assistant", content = reply }
         trimConversation()
         renderReply(reply)
-        pzStatus.Text = ("● AGENT DONE · %d tool uses · ready"):format(toolUses)
+        -- v23.4.4: mechanical guarantee — if the final reply delivered lua
+        -- code and auto-run + exec are ON, execute the largest block and
+        -- report EXEC OK/FAILED, so the user always knows if it really runs.
+        if AGENT_PERMISSIONS.autoRun and AGENT_PERMISSIONS.execution then
+          local blocks, pos = {}, 1
+          while true do
+            local a = reply:find("```", pos, true)
+            if not a then break end
+            local b = reply:find("```", a + 3, true)
+            if not b then break end
+            local code = reply:sub(a + 3, b - 1)
+            local nl = code:find("\n", 1, true)
+            local first = nl and code:sub(1, nl - 1) or ""
+            local lang = first:match("^%s*(%a+)")
+            if lang and (lang:lower() == "lua" or lang:lower() == "luau") then
+              code = nl and code:sub(nl + 1) or code
+            end
+            code = code:gsub("^%s*\n", ""):gsub("\n%s*$", "")
+            if code:match("%S") then blocks[#blocks + 1] = code end
+            pos = b + 3
+          end
+          if #blocks > 0 then
+            local best = blocks[1]
+            for i = 2, #blocks do
+              if #blocks[i] > #best then best = blocks[i] end
+            end
+            local result = Terminal.exec(best, "PULSAR delivery check")
+            if result.ok then
+              addChatMessage("PULSAR", "✅ DELIVERED SCRIPT RUNNING — auto-executed the final script (" .. #best .. " chars, " .. result.duration .. " ms). Use the script's own toggle/keybind to stop it, or re-run it to clean up.")
+            else
+              addChatMessage("PULSAR", "❌ DELIVERED SCRIPT FAILED — " .. tostring(result.output):sub(1, 200))
+            end
+          end
+        end
+        agentRuntime.active = false
+        local turnSecs = math.floor(os.clock() - agentRuntime.turnT0)
+        pzStatus.Text = ("● AGENT DONE · %d tool uses · %d:%02d · ready"):format(toolUses, math.floor(turnSecs / 60), turnSecs % 60)
         pzStatus.TextColor3 = C.good
         return true
       end
     end
   end
-  addChatMessage("PULSAR", ("I completed %d automatic agent steps in this turn. Say 'continue' and I will pick up exactly where I stopped."):format(MAX_STEPS))
+  addChatMessage("PULSAR", ("I used all %d automatic agent steps this turn and the task is still not finished. Say 'continue' and I will pick up exactly where I stopped and finish it."):format(MAX_STEPS))
+  agentRuntime.active = false
   pzStatus.Text = "● Step budget used — say continue"
   pzStatus.TextColor3 = C.dim
   return true
 end
 
+local pendingPrompt = nil
 local function sendPulsar()
-  if busy then return end
+  if busy then
+    -- v23.4.3: messages typed while PULSAR is working were silently
+    -- swallowed (looked dead). Queue them instead and auto-send when the
+    -- current task finishes.
+    local queued = promptBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
+    if queued ~= "" then
+      pendingPrompt = queued
+      promptBox.Text = ""
+      flash("queued — PULSAR will run it when the current task finishes", C.dim)
+    end
+    return
+  end
   local prompt = promptBox.Text:gsub("^%s+", ""):gsub("%s+$", "")
   if prompt == "" then return end
   promptBox.Text = ""
@@ -3306,9 +4240,18 @@ local function sendPulsar()
   task.spawn(function()
     local ok = pcall(runAgentTurn, prompt)
     if not ok then addChatMessage("AGENT ERROR", "The agent loop crashed unexpectedly.", true) end
+    agentRuntime.active = false
     busy = false
     sendBtn.Text = "SEND"
     sendBtn.AutoButtonColor = true
+    -- v23.4.3: auto-send the queued message (if any) now that we're free.
+    if pendingPrompt then
+      local nextPrompt = pendingPrompt
+      pendingPrompt = nil
+      task.wait(0.5)
+      promptBox.Text = nextPrompt
+      sendPulsar()
+    end
   end)
 end
 
@@ -3325,14 +4268,14 @@ end)
 
 execBtn.MouseButton1Click:Connect(function()
   AGENT_PERMISSIONS.execution = not AGENT_PERMISSIONS.execution
-  execBtn.Text = AGENT_PERMISSIONS.execution and "▶ EXEC: ON" or "▶ EXEC: OFF"
+  execBtn.Text = AGENT_PERMISSIONS.execution and "EXEC ON" or "EXEC OFF"
   execBtn.BackgroundColor3 = AGENT_PERMISSIONS.execution and Color3.fromRGB(48, 29, 79) or Color3.fromRGB(40, 40, 48)
   flash("agent execution " .. (AGENT_PERMISSIONS.execution and "enabled" or "disabled"), AGENT_PERMISSIONS.execution and C.good or C.bad)
 end)
 
 autoRunBtn.MouseButton1Click:Connect(function()
   AGENT_PERMISSIONS.autoRun = not AGENT_PERMISSIONS.autoRun
-  autoRunBtn.Text = AGENT_PERMISSIONS.autoRun and "⚡ AUTO-RUN: ON" or "⚡ AUTO-RUN: OFF"
+  autoRunBtn.Text = AGENT_PERMISSIONS.autoRun and "AUTO-RUN ON" or "AUTO-RUN OFF"
   autoRunBtn.BackgroundColor3 = AGENT_PERMISSIONS.autoRun and Color3.fromRGB(48, 29, 79) or Color3.fromRGB(40, 40, 48)
   flash("auto-run " .. (AGENT_PERMISSIONS.autoRun and "enabled" or "disabled"), AGENT_PERMISSIONS.autoRun and C.good or C.bad)
 end)
@@ -3360,7 +4303,7 @@ clearBtn.MouseButton1Click:Connect(function()
   addChatMessage("PULSAR", "Conversation cleared. Tools stay armed. Official PRIMEz site: https://primez-guard.vercel.app/")
 end)
 
-addChatMessage("PULSAR", "I'm PULSAR AGENT — TinyDex v23 Full Scripts Client. I can analyze this whole game (services, characters, remotes, UI), write complete Luau scripts for what you need, and EXECUTE them in the terminal automatically. Execution: "
+addChatMessage("PULSAR", "I'm PULSAR AGENT — TinyDex v23 Full Scripts Client. I can research this game's current scripts ONLINE (web_search), analyze the whole game (services, characters, remotes, UI), write complete Luau scripts for what you need, and EXECUTE them in the terminal automatically. Execution: "
   .. (Terminal.available and "AVAILABLE (loadstring detected)" or "unavailable in this runtime (Studio-safe mode)") .. ". Describe what you want built and I'll get to work.")
 refreshPulsarStatus()
 -- v23.1 PERF: no boot-time full-game index build (it froze big games and
@@ -3372,7 +4315,17 @@ safe("props", refreshProps)
 safe("render", render)
 safe("view", buildView, nil)
 flash("ready", C.dim)
-dismissSplash()
+-- v23.6-SMOOTH UI: everything built — let the splash hand over to the reveal
+BOOTUI.done = true
+
+
+
+
+
+
+
+
+
 
 
 
