@@ -2,13 +2,11 @@
   TinyDex v23.7.1 — PRIMEz Studios FULL SCRIPTS CLIENT  •  SAFE BOOT EDITION
 
   v23.7.1 SAFE BOOT (fixes repeated Roblox crashes on Delta/Xeno after the
-  Nov 27 client update): nothing executor-internal is touched during boot.
-  • UI parents to PlayerGui FIRST — gethui()/CoreGui are only tried when
-    SAFE_BOOT = false (they call into patched executor internals that crash
-    the client when the executor is stale after a Roblox update).
-  • The AIR catalog sync (HTTP to /api/air/models) is deferred 10s after
-    boot instead of firing immediately on load.
-  Set SAFE_BOOT = false below to restore v23.7 hidden-UI behavior.
+  Nov 27 client update): the three boot-time crash risks are REMOVED.
+  • gethui() — removed entirely. UI parents to PlayerGui only.
+  • CoreGui access — removed entirely.
+  • Boot HTTP (AIR catalog sync) — removed from boot; the catalog now syncs
+    only when the user clicks the PLAN button in the PULSAR tab.
   PULSAR AGENT edition: real tool-calling agent loop + executing Luau terminal.
   UI: dark boot splash with animated progress bar, purple glow branding,
       "PRIMEZ STUDIOS • ROBLOX SCRIPT EDITOR" subtitle. All v23 work unchanged.
@@ -96,43 +94,15 @@ gui.ResetOnSpawn = false
 gui.DisplayOrder = 999999
 gui.Enabled = true
 local playerGui = plr:FindFirstChildOfClass("PlayerGui") or plr:WaitForChild("PlayerGui", 10)
--- SAFE_BOOT: parent to PlayerGui first and never touch gethui()/CoreGui at
--- boot — those calls crash clients whose executor is stale after an update.
-local SAFE_BOOT = true
--- Prefer the executor's hidden UI container so the Dex survives respawns,
--- with CoreGui / PlayerGui as safe fallbacks.
-local hiddenUi
-if not SAFE_BOOT then
-  pcall(function()
-    if type(gethui) == "function" then hiddenUi = gethui() end
-  end)
-  pcall(function()
-    for _, existing in ipairs(playerGui and playerGui:GetChildren() or {}) do
-      if existing.Name == "TinyDex" then existing:Destroy() end
-    end
-    for _, existing in ipairs(hiddenUi and hiddenUi:GetChildren() or {}) do
-      if existing.Name == "TinyDex" then existing:Destroy() end
-    end
-    local coreGui = game:GetService("CoreGui")
-    for _, existing in ipairs(coreGui and coreGui:GetChildren() or {}) do
-      if existing.Name == "TinyDex" then existing:Destroy() end
-    end
-  end)
-else
-  pcall(function()
-    for _, existing in ipairs(playerGui and playerGui:GetChildren() or {}) do
-      if existing.Name == "TinyDex" then existing:Destroy() end
-    end
-  end)
-end
-if hiddenUi then
-  pcall(function() gui.Parent = hiddenUi end)
-end
+-- PlayerGui-only UI container. gethui()/CoreGui are never touched: those
+-- calls crash clients whose executor is stale after a Roblox update.
+pcall(function()
+  for _, existing in ipairs(playerGui and playerGui:GetChildren() or {}) do
+    if existing.Name == "TinyDex" then existing:Destroy() end
+  end
+end)
 if not gui.Parent and playerGui then
   pcall(function() gui.Parent = playerGui end)
-end
-if not SAFE_BOOT and not gui.Parent then
-  pcall(function() gui.Parent = game:GetService("CoreGui") end)
 end
 if not gui.Parent then
   error("TinyDex v23: no UI container available (gethui/CoreGui/PlayerGui unavailable)")
@@ -2554,13 +2524,7 @@ pulsarRequest = function(method, url, body)
   return raw
 end
 
-if SAFE_BOOT then
-  -- Defer the first HTTP call well past boot so a stale executor's broken
-  -- request implementation can never crash the client during load.
-  task.delay(10, function() pcall(AIR.syncCatalog) end)
-else
-  AIR.syncCatalog()
-end
+-- No HTTP at boot: the AIR catalog syncs only on demand (PLAN button click).
 
 -- ── Path resolution ─────────────────────────────────────────────────────
 local function resolvePath(input)
