@@ -1499,6 +1499,14 @@ end
 local TOOL_BASE = "https://raw.githubusercontent.com/Prime-dev01/TinyDex.pulsar.ai/main/Tools/"
 local TOOL_DEFS = {
   {
+    name = "PRIMEz SafeSpy (crash-safe)",
+    desc = "OUR OWN passive env logger: incoming remote traffic, game log stream, instance spawn/remove feed, click/prompt log. Listens only -- no hooks, no getgc, PlayerGui UI. PULSAR reads it via _G.PRIMEZ_SAFESPY.query(). Source: /Tools/PRIMEz_SafeSpy/",
+    src = "Prime-dev01/TinyDex.pulsar.ai/Tools/PRIMEz_SafeSpy",
+    loader = 'loadstring(game:HttpGet("' .. TOOL_BASE .. 'PRIMEz_SafeSpy/init.lua", true))()',
+    runnable = true,
+  },
+
+  {
     name = "PRIMEz Parvus Suite",
     desc = "PRIMEz-maintained debugging suite with 30+ tools for environment analysis. Source: /Tools/PRIMEz_Parvus.lua",
     src = "Prime-dev01/TinyDex.pulsar.ai/Tools/PRIMEz_Parvus.lua",
